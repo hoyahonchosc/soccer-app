@@ -417,17 +417,20 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        // Firebaseからデータをロード（localStorageに反映）
-        if(window._firebaseReady) {
-          await window._fbLoad();
-        } else {
-          await new Promise(resolve => {
-            if(window._firebaseReady) resolve();
-            else window.addEventListener('firebaseReady', resolve, {once:true});
-            setTimeout(resolve, 3000); // 3秒でタイムアウト
-          });
-          if(window._fbLoad) await window._fbLoad();
-        }
+        // Firebaseからデータをロード（失敗してもアプリは動く）
+        try {
+          await Promise.race([
+            (async () => {
+              if(!window._firebaseReady) {
+                await new Promise(resolve => {
+                  window.addEventListener('firebaseReady', resolve, {once:true});
+                });
+              }
+              if(window._fbLoad) await window._fbLoad();
+            })(),
+            new Promise(resolve => setTimeout(resolve, 2000)) // 2秒でタイムアウト
+          ]);
+        } catch(e) { console.warn('Firebase load skipped:', e); }
         const m = sGet(SK.m);
         const p = sGet(SK.p);
         const e = sGet(SK.e);

@@ -841,16 +841,15 @@ function showScreen(name) {
   });
   if (name === 'matches') (async function() {
   try {
-    if(window._firebaseReady) {
-      await fbLoadPlaytime();
-    } else {
-      await new Promise(resolve => {
-        if(window._firebaseReady) resolve();
-        else window.addEventListener('firebaseReady', resolve, {once:true});
-        setTimeout(resolve, 3000);
-      });
-      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-    }
+    await Promise.race([
+      (async () => {
+        if(!window._firebaseReady) {
+          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
+        }
+        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+      })(),
+      new Promise(resolve => setTimeout(resolve, 2000))
+    ]);
   } catch(e) { console.warn('init load error:', e); }
   renderMatchList();
 })();
@@ -938,16 +937,15 @@ function saveMatch() {
   periods.forEach(p=>{data.playtimes[match.id][p.id]={};});
   save(); closeModal('modal-match'); (async function() {
   try {
-    if(window._firebaseReady) {
-      await fbLoadPlaytime();
-    } else {
-      await new Promise(resolve => {
-        if(window._firebaseReady) resolve();
-        else window.addEventListener('firebaseReady', resolve, {once:true});
-        setTimeout(resolve, 3000);
-      });
-      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-    }
+    await Promise.race([
+      (async () => {
+        if(!window._firebaseReady) {
+          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
+        }
+        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+      })(),
+      new Promise(resolve => setTimeout(resolve, 2000))
+    ]);
   } catch(e) { console.warn('init load error:', e); }
   renderMatchList();
 })();
@@ -969,16 +967,15 @@ function setFilter(el, val) {
   document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); (async function() {
   try {
-    if(window._firebaseReady) {
-      await fbLoadPlaytime();
-    } else {
-      await new Promise(resolve => {
-        if(window._firebaseReady) resolve();
-        else window.addEventListener('firebaseReady', resolve, {once:true});
-        setTimeout(resolve, 3000);
-      });
-      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-    }
+    await Promise.race([
+      (async () => {
+        if(!window._firebaseReady) {
+          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
+        }
+        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+      })(),
+      new Promise(resolve => setTimeout(resolve, 2000))
+    ]);
   } catch(e) { console.warn('init load error:', e); }
   renderMatchList();
 })();
@@ -1018,16 +1015,15 @@ function renderMatchList() {
         if(data.formations[mid]) delete data.formations[mid];
         save(); (async function() {
   try {
-    if(window._firebaseReady) {
-      await fbLoadPlaytime();
-    } else {
-      await new Promise(resolve => {
-        if(window._firebaseReady) resolve();
-        else window.addEventListener('firebaseReady', resolve, {once:true});
-        setTimeout(resolve, 3000);
-      });
-      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-    }
+    await Promise.race([
+      (async () => {
+        if(!window._firebaseReady) {
+          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
+        }
+        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+      })(),
+      new Promise(resolve => setTimeout(resolve, 2000))
+    ]);
   } catch(e) { console.warn('init load error:', e); }
   renderMatchList();
 })();
@@ -1803,16 +1799,15 @@ function deleteCustomFormation(id) {
 // ============================================================
 (async function() {
   try {
-    if(window._firebaseReady) {
-      await fbLoadPlaytime();
-    } else {
-      await new Promise(resolve => {
-        if(window._firebaseReady) resolve();
-        else window.addEventListener('firebaseReady', resolve, {once:true});
-        setTimeout(resolve, 3000);
-      });
-      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-    }
+    await Promise.race([
+      (async () => {
+        if(!window._firebaseReady) {
+          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
+        }
+        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+      })(),
+      new Promise(resolve => setTimeout(resolve, 2000))
+    ]);
   } catch(e) { console.warn('init load error:', e); }
   renderMatchList();
 })();
