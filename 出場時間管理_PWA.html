@@ -382,25 +382,32 @@ header h1 span { color: var(--accent); }
 ::-webkit-scrollbar-track { background: var(--pitch); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-const firebaseConfig = {
-  apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
-  authDomain: "soccer-app-b2684.firebaseapp.com",
-  projectId: "soccer-app-b2684",
-  storageBucket: "soccer-app-b2684.firebasestorage.app",
-  messagingSenderId: "414908633175",
-  appId: "1:414908633175:web:7aa2603e23e9b335519312"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-window._db = db;
-window._fsDoc = doc;
-window._fsGetDoc = getDoc;
-window._fsSetDoc = setDoc;
-window._firebaseReady = true;
-window.dispatchEvent(new Event('firebaseReady'));
+<script>
+window._firebaseReady = false;
+(async function() {
+  try {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const { getFirestore, doc, getDoc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const app = initializeApp({
+      apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
+      authDomain: "soccer-app-b2684.firebaseapp.com",
+      projectId: "soccer-app-b2684",
+      storageBucket: "soccer-app-b2684.firebasestorage.app",
+      messagingSenderId: "414908633175",
+      appId: "1:414908633175:web:7aa2603e23e9b335519312"
+    });
+    window._db = getFirestore(app);
+    window._fsDoc = doc;
+    window._fsGetDoc = getDoc;
+    window._fsSetDoc = setDoc;
+    window._firebaseReady = true;
+    window.dispatchEvent(new Event('firebaseReady'));
+  } catch(e) {
+    console.warn('Firebase init failed:', e);
+    window._firebaseReady = false;
+    window.dispatchEvent(new Event('firebaseReady'));
+  }
+})();
 </script>
 </head>
 <body>

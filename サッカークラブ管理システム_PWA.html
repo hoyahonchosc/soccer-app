@@ -35,29 +35,33 @@ document.getElementById('club-manifest').href = URL.createObjectURL(blob);
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif; }
 </style>
-<script type="module">
-// ===== Firebase Setup =====
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
-  authDomain: "soccer-app-b2684.firebaseapp.com",
-  projectId: "soccer-app-b2684",
-  storageBucket: "soccer-app-b2684.firebasestorage.app",
-  messagingSenderId: "414908633175",
-  appId: "1:414908633175:web:7aa2603e23e9b335519312"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-window._db = db;
-window._fsDoc = doc;
-window._fsGetDoc = getDoc;
-window._fsSetDoc = setDoc;
-window._fsOnSnapshot = onSnapshot;
-window._firebaseReady = true;
-window.dispatchEvent(new Event('firebaseReady'));
+<script>
+// Firebase を非同期で読み込む（アプリの動作をブロックしない）
+window._firebaseReady = false;
+(async function() {
+  try {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const { getFirestore, doc, getDoc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const app = initializeApp({
+      apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
+      authDomain: "soccer-app-b2684.firebaseapp.com",
+      projectId: "soccer-app-b2684",
+      storageBucket: "soccer-app-b2684.firebasestorage.app",
+      messagingSenderId: "414908633175",
+      appId: "1:414908633175:web:7aa2603e23e9b335519312"
+    });
+    window._db = getFirestore(app);
+    window._fsDoc = doc;
+    window._fsGetDoc = getDoc;
+    window._fsSetDoc = setDoc;
+    window._firebaseReady = true;
+    window.dispatchEvent(new Event('firebaseReady'));
+  } catch(e) {
+    console.warn('Firebase init failed:', e);
+    window._firebaseReady = false;
+    window.dispatchEvent(new Event('firebaseReady'));
+  }
+})();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
