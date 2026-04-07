@@ -384,30 +384,31 @@ header h1 span { color: var(--accent); }
 </style>
 <script>
 window._firebaseReady = false;
-(async function() {
-  try {
-    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-    const { getFirestore, doc, getDoc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    const app = initializeApp({
-      apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
-      authDomain: "soccer-app-b2684.firebaseapp.com",
-      projectId: "soccer-app-b2684",
-      storageBucket: "soccer-app-b2684.firebasestorage.app",
-      messagingSenderId: "414908633175",
-      appId: "1:414908633175:web:7aa2603e23e9b335519312"
-    });
-    window._db = getFirestore(app);
-    window._fsDoc = doc;
-    window._fsGetDoc = getDoc;
-    window._fsSetDoc = setDoc;
-    window._firebaseReady = true;
-    window.dispatchEvent(new Event('firebaseReady'));
-  } catch(e) {
-    console.warn('Firebase init failed:', e);
-    window._firebaseReady = false;
-    window.dispatchEvent(new Event('firebaseReady'));
-  }
-})();
+window._db = null;
+window.addEventListener('load', function() {
+  setTimeout(async function() {
+    try {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+      const { getFirestore, doc, getDoc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const app = initializeApp({
+        apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
+        authDomain: "soccer-app-b2684.firebaseapp.com",
+        projectId: "soccer-app-b2684",
+        storageBucket: "soccer-app-b2684.firebasestorage.app",
+        messagingSenderId: "414908633175",
+        appId: "1:414908633175:web:7aa2603e23e9b335519312"
+      });
+      window._db = getFirestore(app);
+      window._fsDoc = doc;
+      window._fsGetDoc = getDoc;
+      window._fsSetDoc = setDoc;
+      window._firebaseReady = true;
+      console.log('Firebase ready (playtime)');
+    } catch(e) {
+      console.warn('Firebase init failed:', e);
+    }
+  }, 1000);
+});
 </script>
 </head>
 <body>
@@ -846,20 +847,18 @@ function showScreen(name) {
   document.querySelectorAll('.nav-btn').forEach((b,i) => {
     b.classList.toggle('active', ['matches','stats','players'][i] === name);
   });
-  if (name === 'matches') (async function() {
-  try {
-    await Promise.race([
-      (async () => {
-        if(!window._firebaseReady) {
-          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
-        }
-        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-      })(),
-      new Promise(resolve => setTimeout(resolve, 2000))
-    ]);
-  } catch(e) { console.warn('init load error:', e); }
-  renderMatchList();
-})();
+  if (name === 'matches') renderMatchList();
+// アプリ起動後にFirebaseからデータを取得して更新
+window.addEventListener('load', function() {
+  setTimeout(async function() {
+    try {
+      if(typeof fbLoadPlaytime === 'function') {
+        const loaded = await fbLoadPlaytime();
+        if(loaded) renderMatchList();
+      }
+    } catch(e) { console.warn('post-load Firebase error:', e); }
+  }, 1500);
+});
   if (name === 'stats') renderStats();
   if (name === 'players') renderPlayerGrid();
 }
@@ -942,20 +941,18 @@ function saveMatch() {
   data.matches.unshift(match);
   data.playtimes[match.id]={};
   periods.forEach(p=>{data.playtimes[match.id][p.id]={};});
-  save(); closeModal('modal-match'); (async function() {
-  try {
-    await Promise.race([
-      (async () => {
-        if(!window._firebaseReady) {
-          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
-        }
-        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-      })(),
-      new Promise(resolve => setTimeout(resolve, 2000))
-    ]);
-  } catch(e) { console.warn('init load error:', e); }
-  renderMatchList();
-})();
+  save(); closeModal('modal-match'); renderMatchList();
+// アプリ起動後にFirebaseからデータを取得して更新
+window.addEventListener('load', function() {
+  setTimeout(async function() {
+    try {
+      if(typeof fbLoadPlaytime === 'function') {
+        const loaded = await fbLoadPlaytime();
+        if(loaded) renderMatchList();
+      }
+    } catch(e) { console.warn('post-load Firebase error:', e); }
+  }, 1500);
+});
 }
 function openMatch(id) {
   currentMatchId = id;
@@ -972,20 +969,18 @@ function openMatch(id) {
 function setFilter(el, val) {
   currentFilter = val;
   document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active'); (async function() {
-  try {
-    await Promise.race([
-      (async () => {
-        if(!window._firebaseReady) {
-          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
-        }
-        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-      })(),
-      new Promise(resolve => setTimeout(resolve, 2000))
-    ]);
-  } catch(e) { console.warn('init load error:', e); }
-  renderMatchList();
-})();
+  el.classList.add('active'); renderMatchList();
+// アプリ起動後にFirebaseからデータを取得して更新
+window.addEventListener('load', function() {
+  setTimeout(async function() {
+    try {
+      if(typeof fbLoadPlaytime === 'function') {
+        const loaded = await fbLoadPlaytime();
+        if(loaded) renderMatchList();
+      }
+    } catch(e) { console.warn('post-load Firebase error:', e); }
+  }, 1500);
+});
 }
 function renderMatchList() {
   const grid = document.getElementById('match-grid');
@@ -1020,20 +1015,18 @@ function renderMatchList() {
         data.matches=data.matches.filter(x=>x.id!==mid);
         if(data.playtimes[mid]) delete data.playtimes[mid];
         if(data.formations[mid]) delete data.formations[mid];
-        save(); (async function() {
-  try {
-    await Promise.race([
-      (async () => {
-        if(!window._firebaseReady) {
-          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
-        }
-        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-      })(),
-      new Promise(resolve => setTimeout(resolve, 2000))
-    ]);
-  } catch(e) { console.warn('init load error:', e); }
-  renderMatchList();
-})();
+        save(); renderMatchList();
+// アプリ起動後にFirebaseからデータを取得して更新
+window.addEventListener('load', function() {
+  setTimeout(async function() {
+    try {
+      if(typeof fbLoadPlaytime === 'function') {
+        const loaded = await fbLoadPlaytime();
+        if(loaded) renderMatchList();
+      }
+    } catch(e) { console.warn('post-load Firebase error:', e); }
+  }, 1500);
+});
       });
     });
     actions.appendChild(editBtn); actions.appendChild(delBtn); card.appendChild(actions); grid.appendChild(card);
@@ -1804,20 +1797,18 @@ function deleteCustomFormation(id) {
 // ============================================================
 // INIT
 // ============================================================
-(async function() {
-  try {
-    await Promise.race([
-      (async () => {
-        if(!window._firebaseReady) {
-          await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
-        }
-        if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
-      })(),
-      new Promise(resolve => setTimeout(resolve, 2000))
-    ]);
-  } catch(e) { console.warn('init load error:', e); }
-  renderMatchList();
-})();
+renderMatchList();
+// アプリ起動後にFirebaseからデータを取得して更新
+window.addEventListener('load', function() {
+  setTimeout(async function() {
+    try {
+      if(typeof fbLoadPlaytime === 'function') {
+        const loaded = await fbLoadPlaytime();
+        if(loaded) renderMatchList();
+      }
+    } catch(e) { console.warn('post-load Firebase error:', e); }
+  }, 1500);
+});
 </script>
 
 <script>
