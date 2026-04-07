@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⚽ 出場時間管理</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="出場時間管理">
+<meta name="theme-color" content="#00C853">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23007B2E'/><text y='.9em' font-size='75' x='12'>⚽</text></svg>">
+<link rel="manifest" id="playtime-manifest">
+<script>
+const ptManifest = {name:"出場時間管理",short_name:"出場時間",description:"サッカー出場時間・フォーメーション管理",start_url:location.href,display:"standalone",background_color:"#111f11",theme_color:"#00C853",orientation:"portrait",icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='38' fill='%23007B2E'/><text y='.85em' font-size='140' x='16'>⚽</text></svg>",sizes:"192x192",type:"image/svg+xml"}]};
+const ptBlob=new Blob([JSON.stringify(ptManifest)],{type:"application/json"});
+document.getElementById("playtime-manifest").href=URL.createObjectURL(ptBlob);
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;700;900&display=swap');
+
+:root {
+  --green: #00C853;
+  --green-dark: #007B2E;
+  --green-light: #69F0AE;
+  --pitch: #111f11;
+  --pitch-mid: #172e17;
+  --card: #0d220d;
+  --card2: #112a11;
+  --border: #1e461e;
+  --text: #e8f5e9;
+  --text-muted: #81c784;
+  --accent: #FFD600;
+  --red: #FF1744;
+  --blue: #2979FF;
+  --orange: #FF6D00;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; background: var(--pitch); color: var(--text); min-height: 100vh; }
+
+header {
+  background: #091509; border-bottom: 2px solid var(--green-dark);
+  padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; color: var(--green-light); }
+header h1 span { color: var(--accent); }
+.header-nav { display: flex; gap: 6px; }
+.nav-btn {
+  background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
+  font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 7px 13px;
+  border-radius: 6px; cursor: pointer; transition: all 0.2s;
+}
+.nav-btn.active, .nav-btn:hover { background: var(--green-dark); border-color: var(--green); color: var(--green-light); }
+
+.screen { display: none; padding: 14px; }
+.screen.active { display: block; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--green-light); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--green-dark), var(--green)); border: none; color: #000;
+  font-family: 'Noto Sans JP', sans-serif; font-weight: 700; font-size: 13px;
+  padding: 9px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 3px 10px rgba(0,200,83,0.3);
+}
+.btn-primary:active { transform: scale(0.97); }
+.btn-secondary {
+  background: var(--card2); border: 1px solid var(--border); color: var(--text-muted);
+  font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 8px 14px;
+  border-radius: 6px; cursor: pointer;
+}
+
+/* === DETAIL TABS === */
+.detail-tab-bar {
+  display: flex; margin-bottom: 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.detail-tab {
+  flex: 1; padding: 10px 4px; text-align: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px;
+  color: var(--text-muted); cursor: pointer; border: none; background: none; transition: all 0.18s;
+}
+.detail-tab.active { background: var(--green-dark); color: var(--green-light); }
+
+/* === PERIOD TABS === */
+.period-selector-wrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+}
+.period-selector-wrap .lbl { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+.period-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 0; padding-top: 6px; }
+.period-tab {
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px;
+  padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--pitch-mid); color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s; position: relative; overflow: visible;
+  margin: 6px 6px 0 0; text-align: center;
+}
+.period-tab.active { background: var(--green-dark); border-color: var(--green); color: var(--green-light); box-shadow: 0 0 10px rgba(0,200,83,0.25); }
+.period-tab .del-p {
+  position: absolute; top: -8px; right: -8px; width: 22px; height: 22px;
+  background: var(--red); border-radius: 50%; border: 2px solid var(--pitch); color: #fff;
+  font-size: 11px; font-weight: 700; cursor: pointer; z-index: 10;
+  display: flex; align-items: center; justify-content: center; pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.period-tab-sub { font-size: 9px; font-family: 'Noto Sans JP',sans-serif; font-weight: 400; letter-spacing: 0; color: var(--accent); margin-top: 1px; }
+.tab-all {
+  padding: 6px 12px; border-radius: 7px;
+  border: 1px solid rgba(255,214,0,0.35);
+  background: rgba(255,214,0,0.1); color: var(--accent);
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px;
+  cursor: pointer; transition: all 0.15s; margin: 6px 6px 0 0;
+}
+.tab-all.active { background: rgba(255,214,0,0.25); border-color: var(--accent); }
+.add-period-btn {
+  background: rgba(0,200,83,0.1); border: 1px dashed var(--green-dark);
+  color: var(--green-light); font-size: 20px; padding: 4px 12px;
+  border-radius: 7px; cursor: pointer; line-height: 1; margin: 6px 0 0 0;
+}
+
+/* === PITCH === */
+.pitch-container { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; padding: 10px; }
+.pitch-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;
+}
+.pitch-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 2px; color: var(--green-light); }
+
+/* Phase switcher (before/after sub) */
+.phase-switcher { display: flex; gap: 4px; }
+.phase-btn {
+  font-size: 11px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--pitch-mid); color: var(--text-muted); transition: all 0.15s;
+}
+.phase-btn.active { background: rgba(255,214,0,0.2); border-color: var(--accent); color: var(--accent); }
+
+.pitch-field {
+  position: relative; background: #1a5c1a; border-radius: 8px; overflow: hidden;
+  aspect-ratio: 7/10; border: 2px solid rgba(255,255,255,0.15);
+}
+.pitch-field::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 9.9%, rgba(255,255,255,0.035) 9.9%, rgba(255,255,255,0.035) 10%);
+  pointer-events: none;
+}
+.field-line { position: absolute; background: rgba(255,255,255,0.25); pointer-events: none; }
+.field-center-line { top: 50%; left: 5%; right: 5%; height: 1px; transform: translateY(-50%); }
+.field-center-circle {
+  position: absolute; width: 20%; aspect-ratio: 1/1;
+  border: 1px solid rgba(255,255,255,0.25); border-radius: 50%;
+  top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
+}
+.field-penalty-top { position: absolute; top: 3%; left: 20%; right: 20%; height: 12%; border: 1px solid rgba(255,255,255,0.25); border-top: none; pointer-events: none; }
+.field-penalty-bottom { position: absolute; bottom: 3%; left: 20%; right: 20%; height: 12%; border: 1px solid rgba(255,255,255,0.25); border-bottom: none; pointer-events: none; }
+.field-goal-top { position: absolute; top: 3%; left: 34%; right: 34%; height: 4%; border: 1px solid rgba(255,255,255,0.25); border-top: none; pointer-events: none; }
+.field-goal-bottom { position: absolute; bottom: 3%; left: 34%; right: 34%; height: 4%; border: 1px solid rgba(255,255,255,0.25); border-bottom: none; pointer-events: none; }
+
+/* Player dot */
+.player-dot {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  cursor: pointer; z-index: 10;
+}
+.player-dot-circle {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--green-dark); border: 2px solid var(--green);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; color: var(--green-light);
+  transition: all 0.18s; box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.player-dot-circle.gk { background: #7B1FA2; border-color: #CE93D8; color: #CE93D8; }
+.player-dot-circle.sub-changed { background: #1a3a6a; border-color: #2979FF; color: #82b1ff; }
+.player-dot-circle.empty {
+  background: rgba(255,255,255,0.07); border: 2px dashed rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.25); font-size: 18px;
+}
+.player-dot-name {
+  font-size: 9px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  white-space: nowrap; max-width: 50px; overflow: hidden; text-overflow: ellipsis;
+  text-align: center; line-height: 1.1;
+}
+/* sub indicator arrow on dot */
+.sub-indicator {
+  position: absolute; top: -6px; right: -6px;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 900;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.sub-indicator.in { background: var(--green); color: #000; }
+.sub-indicator.out { background: var(--red); color: #fff; }
+
+/* === FORMATION SELECT BAR === */
+.formation-select-bar {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.formation-select-bar label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.fm-select {
+  background: var(--pitch-mid); border: 1px solid var(--border);
+  color: var(--accent); font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px; padding: 6px 10px; border-radius: 7px; outline: none; flex: 1; min-width: 130px;
+}
+
+/* === SUBS === */
+.sub-section {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+}
+.sub-section-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px;
+  color: var(--accent); margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sub-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sub-row:last-child { border-bottom: none; }
+.sub-time-badge {
+  background: rgba(255,214,0,0.15); border: 1px solid rgba(255,214,0,0.3);
+  color: var(--accent); font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px; padding: 2px 7px; border-radius: 5px; min-width: 38px; text-align: center;
+}
+.sub-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 12px; flex-shrink: 0; }
+.sub-num.out { background: rgba(255,23,68,0.2); color: var(--red); border: 1px solid rgba(255,23,68,0.4); }
+.sub-num.in { background: rgba(0,200,83,0.2); color: var(--green); border: 1px solid rgba(0,200,83,0.4); }
+
+/* === CUSTOM FORMATION EDITOR === */
+.custom-editor-wrap {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; margin-bottom: 12px;
+}
+.custom-editor-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1px;
+  color: var(--green-light); margin-bottom: 12px;
+}
+.custom-pitch {
+  position: relative; background: #1a5c1a; border-radius: 8px;
+  aspect-ratio: 7/10; border: 2px solid rgba(255,255,255,0.15); margin-bottom: 12px;
+  touch-action: none;
+}
+.custom-pitch::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 9.9%, rgba(255,255,255,0.035) 9.9%, rgba(255,255,255,0.035) 10%);
+  pointer-events: none;
+}
+.custom-pos-dot {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--green-dark); border: 2px solid var(--green);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 11px; color: var(--green-light);
+  cursor: grab; touch-action: none; z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5); user-select: none;
+}
+.custom-pos-dot.gk-dot { background: #7B1FA2; border-color: #CE93D8; color: #CE93D8; }
+.custom-pos-dot.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,214,0,0.4); }
+
+.custom-pos-list {
+  display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;
+}
+.custom-pos-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 7px;
+  background: var(--pitch-mid); border: 1px solid var(--border);
+  cursor: pointer; transition: all 0.15s;
+}
+.custom-pos-row.selected { border-color: var(--accent); background: rgba(255,214,0,0.07); }
+.custom-pos-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 11px;
+  background: var(--green-dark); border: 1px solid var(--green); color: var(--green-light); flex-shrink: 0;
+}
+.custom-pos-badge.gk-badge { background: #7B1FA2; border-color: #CE93D8; color: #CE93D8; }
+
+/* === PLAYTIME === */
+.player-list { display: flex; flex-direction: column; gap: 7px; }
+.player-row {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; transition: border-color 0.15s;
+}
+.player-row.is-starter { border-left: 3px solid var(--green); }
+.player-row.is-sub { border-left: 3px solid var(--accent); }
+.player-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.player-num {
+  width: 26px; height: 26px; background: var(--green-dark); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 13px; color: var(--green-light); flex-shrink: 0;
+}
+.player-name { font-size: 13px; font-weight: 700; flex: 1; }
+.player-role-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; font-weight: 700; }
+.badge-starter { background: rgba(0,200,83,0.15); color: var(--green); border: 1px solid rgba(0,200,83,0.3); }
+.badge-sub { background: rgba(255,214,0,0.15); color: var(--accent); border: 1px solid rgba(255,214,0,0.3); }
+.badge-bench { background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px solid var(--border); }
+.time-controls { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.time-btn { width: 30px; height: 30px; border-radius: 50%; border: none; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; transition: all 0.12s; }
+.time-btn.minus { background: rgba(255,23,68,0.18); color: var(--red); }
+.time-btn.plus { background: rgba(0,200,83,0.18); color: var(--green); }
+.time-input-direct {
+  width: 46px; background: var(--pitch-mid); border: 1px solid var(--border);
+  color: var(--accent); font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px; text-align: center; border-radius: 6px; padding: 4px; outline: none;
+}
+.total-mins { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--accent); min-width: 44px; text-align: right; }
+.quick-btns { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.quick-btn { background: rgba(0,200,83,0.09); border: 1px solid rgba(0,200,83,0.22); color: var(--green-light); font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer; }
+.quick-btn.zero { color: var(--red); border-color: rgba(255,23,68,0.25); background: rgba(255,23,68,0.07); }
+.quick-btn.from-plan { background: rgba(41,121,255,0.15); border-color: rgba(41,121,255,0.4); color: #82b1ff; font-weight: 700; }
+.bar-wrap { height: 13px; background: rgba(255,255,255,0.05); border-radius: 7px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 7px; transition: width 0.35s ease; position: relative; }
+.bar-pct { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 9px; font-weight: 700; color: rgba(0,0,0,0.75); white-space: nowrap; }
+.stacked-bar { height: 13px; border-radius: 7px; overflow: hidden; display: flex; background: rgba(255,255,255,0.05); width: 100%; }
+.stacked-seg { height: 100%; display: flex; align-items: center; justify-content: center; transition: width 0.35s ease; overflow: hidden; flex-shrink: 0; }
+.seg-lbl { font-size: 9px; color: rgba(0,0,0,0.7); font-weight: 700; padding: 0 2px; }
+
+/* === STATS === */
+.stats-summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+.stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--green-light); }
+.stat-lbl { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.chart-title { font-size: 12px; font-weight: 700; margin-bottom: 12px; color: var(--green-light); }
+.chart-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.chart-name { width: 65px; font-size: 11px; text-align: right; color: var(--text-muted); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-bar-area { flex: 1; }
+.chart-val { width: 42px; font-family: 'Bebas Neue', sans-serif; font-size: 14px; color: var(--accent); text-align: right; flex-shrink: 0; }
+
+/* === PLAYERS === */
+.player-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+.player-chip { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 9px; display: flex; align-items: center; gap: 7px; }
+.player-chip .num { font-family: 'Bebas Neue', sans-serif; font-size: 15px; color: var(--green-light); width: 22px; flex-shrink: 0; }
+.player-chip .name { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-chip .del { background: none; border: none; color: rgba(255,23,68,0.45); cursor: pointer; font-size: 13px; padding: 0; }
+
+/* === MATCH CARDS === */
+.filter-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+.filter-chip { font-size: 11px; padding: 5px 12px; border-radius: 20px; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--text-muted); transition: all 0.15s; }
+.filter-chip.active { background: var(--green-dark); border-color: var(--green); color: var(--green-light); }
+.match-grid { display: flex; flex-direction: column; gap: 10px; }
+.match-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; border-left: 4px solid var(--green); }
+.match-card.tournament { border-left-color: var(--accent); }
+.match-card-info { padding: 14px 14px 8px 14px; cursor: pointer; display: block; }
+.match-tag { font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 700; margin-bottom: 6px; display: inline-block; }
+.tag-practice { background: rgba(41,121,255,0.18); color: #82b1ff; border: 1px solid rgba(41,121,255,0.35); }
+.tag-tournament { background: rgba(255,214,0,0.18); color: var(--accent); border: 1px solid rgba(255,214,0,0.35); }
+.match-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.match-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* === MODALS === */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; width: 92%; max-width: 460px; max-height: 88vh; overflow-y: auto; }
+.modal h2 { font-family: 'Bebas Neue', sans-serif; font-size: 19px; letter-spacing: 2px; color: var(--green-light); margin-bottom: 18px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+.form-group input, .form-group select { width: 100%; background: var(--pitch-mid); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; padding: 9px 11px; border-radius: 8px; outline: none; }
+.form-group input:focus, .form-group select:focus { border-color: var(--green); }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
+
+.assign-list { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; }
+.assign-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--pitch-mid); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; }
+.assign-item.selected { background: var(--green-dark); border-color: var(--green); }
+.assign-item.already-used { opacity: 0.4; pointer-events: none; }
+.assign-num { width: 26px; height: 26px; border-radius: 50%; background: var(--green-dark); border: 1px solid var(--green); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 13px; color: var(--green-light); flex-shrink: 0; }
+
+.sort-chip { font-size: 11px; padding: 5px 11px; border-radius: 20px; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--text-muted); transition: all 0.15s; }
+.sort-chip.active { background: rgba(255,214,0,0.15); border-color: var(--accent); color: var(--accent); }
+
+.back-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text-muted); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; cursor: pointer; margin-bottom: 14px; padding: 0; }
+.match-info-bar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+
+.empty-state { text-align: center; padding: 36px 20px; color: var(--text-muted); }
+.empty-state .icon { font-size: 44px; margin-bottom: 10px; }
+.empty-state p { font-size: 13px; line-height: 1.7; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--pitch); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚽ PLAY<span>TIME</span></h1>
+  <div class="header-nav">
+    <button class="nav-btn active" onclick="showScreen('matches')">試合一覧</button>
+    <button class="nav-btn" onclick="showScreen('stats')">統計</button>
+    <button class="nav-btn" onclick="showScreen('players')">選手管理</button>
+  </div>
+</header>
+
+<!-- 試合一覧 -->
+<div class="screen active" id="screen-matches">
+  <div class="section-header">
+    <span class="section-title">試合・練習一覧</span>
+    <button class="btn-primary" onclick="openNewMatchModal()">＋ 追加</button>
+  </div>
+  <div class="filter-bar">
+    <span class="filter-chip active" onclick="setFilter(this,'all')">すべて</span>
+    <span class="filter-chip" onclick="setFilter(this,'practice')">練習試合</span>
+    <span class="filter-chip" onclick="setFilter(this,'tournament')">大会</span>
+  </div>
+  <div class="match-grid" id="match-grid"></div>
+</div>
+
+<!-- 試合詳細 -->
+<div class="screen" id="screen-detail">
+  <button class="back-btn" onclick="showScreen('matches')">← 一覧に戻る</button>
+  <div class="match-info-bar" id="detail-info-bar"></div>
+  <div class="period-selector-wrap">
+    <div class="lbl">📋 本目を選択</div>
+    <div class="period-tabs" id="period-tabs"></div>
+  </div>
+  <div class="detail-tab-bar">
+    <button class="detail-tab active" id="dtab-formation" onclick="switchDetailTab('formation')">🗺 フォーメーション</button>
+    <button class="detail-tab" id="dtab-playtime" onclick="switchDetailTab('playtime')">⏱ プレータイム</button>
+  </div>
+
+  <!-- フォーメーション -->
+  <div id="detail-formation">
+    <div class="formation-select-bar">
+      <label>フォーメーション</label>
+      <select class="fm-select" id="formation-select" onchange="onFormationChange()"></select>
+      <button id="btn-delete-custom-fm" style="display:none;background:rgba(255,23,68,0.12);border:1px solid rgba(255,23,68,0.4);color:var(--red);font-size:11px;padding:6px 10px;border-radius:6px;cursor:pointer" onclick="deleteCurrentCustomFormation()">🗑 削除</button>
+      <button class="btn-primary" style="font-size:11px;padding:6px 10px" onclick="applyPlanToPlaytime()">⏱ プランを反映</button>
+      <button class="btn-secondary" style="font-size:11px;padding:6px 10px" onclick="openCustomFormationScreen()">✏️ カスタム</button>
+    </div>
+
+    <div class="pitch-container">
+      <div class="pitch-header">
+        <span class="pitch-title" id="pitch-title-label">🏟 スターティングメンバー</span>
+        <div class="phase-switcher" id="phase-switcher" style="display:none"></div>
+      </div>
+      <div class="pitch-field" id="pitch-field">
+        <div class="field-line field-center-line"></div>
+        <div class="field-center-circle"></div>
+        <div class="field-penalty-top"></div><div class="field-penalty-bottom"></div>
+        <div class="field-goal-top"></div><div class="field-goal-bottom"></div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <div class="sub-section-title">
+        <span>🔄 交代プラン</span>
+        <button class="btn-primary" style="font-size:11px;padding:5px 10px" onclick="openAddSubModal()">＋ 交代追加</button>
+      </div>
+      <div id="sub-list"><div class="empty-state" style="padding:18px"><p>交代プランがありません</p></div></div>
+    </div>
+
+    <div class="sub-section">
+      <div class="sub-section-title"><span>🪑 ベンチ</span></div>
+      <div id="bench-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:30px"></div>
+    </div>
+  </div>
+
+  <!-- プレータイム -->
+  <div id="detail-playtime" style="display:none">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text-muted)">並び替え:</span>
+      <button class="sort-chip active" id="sort-num" onclick="setSort('num')">背番号順</button>
+      <button class="sort-chip" id="sort-time-desc" onclick="setSort('time-desc')">多い順</button>
+      <button class="sort-chip" id="sort-time-asc" onclick="setSort('time-asc')">少ない順</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;padding:8px 10px;background:rgba(41,121,255,0.08);border:1px solid rgba(41,121,255,0.2);border-radius:7px">
+      💡「プランから」ボタンでフォーメーションプランの出場時間を一括適用できます
+    </div>
+    <div class="player-list" id="detail-players"></div>
+  </div>
+</div>
+
+<!-- カスタムフォーメーション画面 -->
+<div class="screen" id="screen-custom-formation">
+  <button class="back-btn" onclick="closeCustomFormationScreen()">← フォーメーションに戻る</button>
+  <div class="section-header">
+    <span class="section-title">カスタムフォーメーション</span>
+    <button class="btn-primary" onclick="saveCustomFormation()">保存</button>
+  </div>
+
+  <div class="custom-editor-wrap">
+    <div class="custom-editor-title">フォーメーション名</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <input type="text" id="custom-fm-name" placeholder="例: 3-4-1-2" style="background:var(--pitch-mid);border:1px solid var(--border);color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:16px;padding:8px 12px;border-radius:8px;outline:none;width:100%">
+    </div>
+    <div class="custom-editor-title">ポジション配置</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">ポジションをドラッグで移動。ポジション名を編集できます。</div>
+
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn-primary" style="font-size:11px;padding:6px 12px" onclick="addCustomPosition()">＋ ポジション追加</button>
+      <button style="background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.4);color:var(--red);font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer" onclick="deleteSelectedPos()">選択中を削除</button>
+    </div>
+
+    <div class="custom-pitch" id="custom-pitch">
+      <div class="field-line field-center-line" style="position:absolute;top:50%;left:5%;right:5%;height:1px;background:rgba(255,255,255,0.25);transform:translateY(-50%)"></div>
+      <div style="position:absolute;width:20%;aspect-ratio:1/1;border:1px solid rgba(255,255,255,0.25);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none"></div>
+      <div style="position:absolute;top:3%;left:20%;right:20%;height:12%;border:1px solid rgba(255,255,255,0.25);border-top:none;pointer-events:none"></div>
+      <div style="position:absolute;bottom:3%;left:20%;right:20%;height:12%;border:1px solid rgba(255,255,255,0.25);border-bottom:none;pointer-events:none"></div>
+    </div>
+
+    <!-- Position list -->
+    <div style="margin-top:10px">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">ポジション一覧（タップして選択 → 名前を編集）</div>
+      <div class="custom-pos-list" id="custom-pos-list"></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--accent);margin-bottom:8px">保存済みカスタムフォーメーション</div>
+    <div id="saved-custom-list"></div>
+  </div>
+</div>
+
+<!-- 統計 -->
+<div class="screen" id="screen-stats">
+  <div class="section-header"><span class="section-title">統計・累計</span></div>
+  <div class="stats-summary" id="stats-summary"></div>
+  <div class="chart-container" id="stats-chart"></div>
+</div>
+
+<!-- 選手管理 -->
+<div class="screen" id="screen-players">
+  <div class="section-header">
+    <span class="section-title">選手管理（最大30名）</span>
+    <button class="btn-primary" onclick="openNewPlayerModal()">＋ 選手追加</button>
+  </div>
+  <div class="player-grid" id="player-grid"></div>
+</div>
+
+<!-- MODAL: 試合追加 -->
+<div class="modal-overlay" id="modal-match"><div class="modal">
+  <h2>試合 / 練習を追加</h2>
+  <div class="form-group"><label>種別</label><select id="m-type"><option value="practice">練習試合</option><option value="tournament">大会</option></select></div>
+  <div class="form-group"><label>タイトル</label><input type="text" id="m-title" placeholder="例: vs ○○FC"></div>
+  <div class="form-group"><label>日付</label><input type="date" id="m-date"></div>
+  <div class="form-group"><label>1本あたりの時間（分）</label><input type="number" id="m-period-mins" placeholder="例: 30" min="1" max="90"></div>
+  <div class="form-group"><label>本数</label><input type="number" id="m-period-count" placeholder="例: 6" min="1" max="20" value="1"></div>
+  <div class="form-group"><label>備考</label><input type="text" id="m-note" placeholder="メモ（任意）"></div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-match')">キャンセル</button>
+    <button class="btn-primary" onclick="saveMatch()">追加する</button>
+  </div>
+</div></div>
+
+<!-- MODAL: 本追加 -->
+<div class="modal-overlay" id="modal-period"><div class="modal">
+  <h2>本を追加</h2>
+  <div class="form-group"><label>試合時間（分）</label><input type="number" id="pa-mins" placeholder="例: 30" min="1" max="120"></div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-period')">キャンセル</button>
+    <button class="btn-primary" onclick="savePeriod()">追加</button>
+  </div>
+</div></div>
+
+<!-- MODAL: 削除確認 -->
+<div class="modal-overlay" id="modal-confirm"><div class="modal" style="max-width:320px;text-align:center">
+  <div style="font-size:36px;margin-bottom:12px">🗑️</div>
+  <div style="font-size:15px;font-weight:700;margin-bottom:6px" id="confirm-msg">削除しますか？</div>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px">この操作は取り消せません</div>
+  <div style="display:flex;gap:10px">
+    <button class="btn-secondary" style="flex:1;padding:12px" onclick="closeModal('modal-confirm')">キャンセル</button>
+    <button id="confirm-ok-btn" style="flex:1;padding:12px;background:var(--red);border:none;color:#fff;font-family:Noto Sans JP,sans-serif;font-weight:700;font-size:14px;border-radius:8px;cursor:pointer">削除する</button>
+  </div>
+</div></div>
+
+<!-- MODAL: 試合情報編集 -->
+<div class="modal-overlay" id="modal-edit-match"><div class="modal">
+  <h2>試合情報を編集</h2>
+  <div class="form-group"><label>種別</label><select id="em-type"><option value="practice">練習試合</option><option value="tournament">大会</option></select></div>
+  <div class="form-group"><label>タイトル</label><input type="text" id="em-title"></div>
+  <div class="form-group"><label>日付</label><input type="date" id="em-date"></div>
+  <div class="form-group"><label>備考</label><input type="text" id="em-note"></div>
+  <div style="border-top:1px solid var(--border);margin:14px 0 12px;padding-top:12px">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">⏱ 各本の試合時間（分）</div>
+    <div id="em-periods-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-edit-match')">キャンセル</button>
+    <button class="btn-primary" onclick="saveEditMatch()">保存する</button>
+  </div>
+</div></div>
+
+<!-- MODAL: 選手追加 -->
+<div class="modal-overlay" id="modal-player"><div class="modal">
+  <h2>選手を追加</h2>
+  <div class="form-group"><label>背番号</label><input type="number" id="p-num" min="1" max="99" placeholder="1〜99"></div>
+  <div class="form-group"><label>名前</label><input type="text" id="p-name" placeholder="選手名"></div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-player')">キャンセル</button>
+    <button class="btn-primary" onclick="savePlayer()">追加する</button>
+  </div>
+</div></div>
+
+<!-- MODAL: ポジション割り当て -->
+<div class="modal-overlay" id="modal-assign"><div class="modal">
+  <h2 id="assign-modal-title">選手を選択</h2>
+  <div class="assign-list" id="assign-list"></div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-assign')">キャンセル</button>
+    <button style="background:rgba(255,23,68,0.12);border:1px solid rgba(255,23,68,0.4);color:var(--red);font-size:12px;padding:8px 14px;border-radius:6px;cursor:pointer" onclick="clearAssign()">外す</button>
+  </div>
+</div></div>
+
+<!-- MODAL: 交代追加 -->
+<div class="modal-overlay" id="modal-sub"><div class="modal">
+  <h2>交代プランを追加</h2>
+  <div class="form-group"><label>交代時間（分）</label><input type="number" id="sub-time" min="0" max="120" placeholder="例: 15"></div>
+  <div class="form-group">
+    <label>OUT（退く選手）</label>
+    <select id="sub-out" style="width:100%;background:var(--pitch-mid);border:1px solid var(--border);color:var(--text);font-family:Noto Sans JP,sans-serif;font-size:14px;padding:9px;border-radius:8px;outline:none"></select>
+  </div>
+  <div class="form-group">
+    <label>OUT 選手のポジション（交代後も同じ場所に配置）</label>
+    <select id="sub-out-pos" style="width:100%;background:var(--pitch-mid);border:1px solid var(--border);color:var(--text);font-family:Noto Sans JP,sans-serif;font-size:14px;padding:9px;border-radius:8px;outline:none"></select>
+  </div>
+  <div class="form-group">
+    <label>IN（入る選手）</label>
+    <select id="sub-in" style="width:100%;background:var(--pitch-mid);border:1px solid var(--border);color:var(--text);font-family:Noto Sans JP,sans-serif;font-size:14px;padding:9px;border-radius:8px;outline:none"></select>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-sub')">キャンセル</button>
+    <button class="btn-primary" onclick="saveSub()">追加する</button>
+  </div>
+</div></div>
+
+<!-- MODAL: カスタムポジション名編集 -->
+<div class="modal-overlay" id="modal-edit-pos"><div class="modal" style="max-width:320px">
+  <h2>ポジション名を編集</h2>
+  <div class="form-group"><label>ポジション名</label><input type="text" id="edit-pos-name" placeholder="例: CB, MF, FW"></div>
+  <div class="modal-actions">
+    <button class="btn-secondary" onclick="closeModal('modal-edit-pos')">キャンセル</button>
+    <button class="btn-primary" onclick="applyPosName()">OK</button>
+  </div>
+</div></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+let data = JSON.parse(localStorage.getItem('soccerDataV2') || 'null') || { players: [], matches: [], playtimes: {} };
+if (!data.formations) data.formations = {};
+if (!data.customFormations) data.customFormations = [];
+
+let currentMatchId = null;
+let currentPeriodId = null;
+let currentFilter = 'all';
+let currentSort = 'num';
+let currentDetailTab = 'formation';
+let assigningPosId = null;
+let assigningPhase = 'start'; // 'start' or phase index after sub
+let currentPitchPhase = 0; // 0 = start, 1+ = after sub N
+
+// Custom formation editor state
+let customPosData = []; // [{id, label, x, y}]
+let selectedCustomPosId = null;
+let customEditingId = null; // existing custom formation id, null=new
+
+const COLORS = ['#00C853','#2979FF','#FFD600','#FF6D00','#D500F9','#00BCD4','#FF1744','#69F0AE','#82b1ff','#ff6e40','#f06292','#4db6ac','#ff8a65','#ba68c8','#4fc3f7','#dce775','#ffb74d','#e57373','#26c6da','#aed581'];
+
+// ============================================================
+// PRESET FORMATIONS
+// ============================================================
+const PRESET_FORMATIONS = {
+  '4-3-3': { label:'4-3-3', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:80,y:72},{id:'rcb',label:'CB',x:60,y:72},
+    {id:'lcb',label:'CB',x:40,y:72},{id:'lb',label:'LB',x:20,y:72},
+    {id:'rm',label:'MF',x:75,y:52},{id:'cm',label:'MF',x:50,y:52},{id:'lm',label:'MF',x:25,y:52},
+    {id:'rw',label:'RW',x:78,y:20},{id:'cf',label:'CF',x:50,y:15},{id:'lw',label:'LW',x:22,y:20}
+  ]},
+  '4-4-2': { label:'4-4-2', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:80,y:72},{id:'rcb',label:'CB',x:60,y:72},
+    {id:'lcb',label:'CB',x:40,y:72},{id:'lb',label:'LB',x:20,y:72},
+    {id:'rm',label:'RM',x:80,y:50},{id:'rcm',label:'MF',x:58,y:50},{id:'lcm',label:'MF',x:38,y:50},{id:'lm',label:'LM',x:18,y:50},
+    {id:'rs',label:'ST',x:62,y:18},{id:'ls',label:'ST',x:38,y:18}
+  ]},
+  '4-2-3-1': { label:'4-2-3-1', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:80,y:72},{id:'rcb',label:'CB',x:60,y:72},
+    {id:'lcb',label:'CB',x:40,y:72},{id:'lb',label:'LB',x:20,y:72},
+    {id:'rdm',label:'DM',x:62,y:57},{id:'ldm',label:'DM',x:38,y:57},
+    {id:'ram',label:'AM',x:76,y:38},{id:'cam',label:'AM',x:50,y:34},{id:'lam',label:'AM',x:24,y:38},
+    {id:'cf',label:'CF',x:50,y:14}
+  ]},
+  '3-5-2': { label:'3-5-2', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:70,y:73},{id:'ccb',label:'CB',x:50,y:73},{id:'lcb',label:'CB',x:30,y:73},
+    {id:'rwb',label:'WB',x:85,y:52},{id:'rcm',label:'MF',x:67,y:50},{id:'cm',label:'MF',x:50,y:47},{id:'lcm',label:'MF',x:33,y:50},{id:'lwb',label:'WB',x:15,y:52},
+    {id:'rs',label:'ST',x:62,y:18},{id:'ls',label:'ST',x:38,y:18}
+  ]},
+  '3-4-3': { label:'3-4-3', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:70,y:73},{id:'ccb',label:'CB',x:50,y:73},{id:'lcb',label:'CB',x:30,y:73},
+    {id:'rm',label:'MF',x:80,y:52},{id:'rcm',label:'MF',x:58,y:52},{id:'lcm',label:'MF',x:38,y:52},{id:'lm',label:'MF',x:18,y:52},
+    {id:'rw',label:'RW',x:76,y:20},{id:'cf',label:'CF',x:50,y:15},{id:'lw',label:'LW',x:24,y:20}
+  ]},
+  '5-3-2': { label:'5-3-2', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rrb',label:'RB',x:85,y:72},{id:'rcb',label:'CB',x:67,y:72},
+    {id:'ccb',label:'CB',x:50,y:72},{id:'lcb',label:'CB',x:33,y:72},{id:'llb',label:'LB',x:15,y:72},
+    {id:'rm',label:'MF',x:70,y:50},{id:'cm',label:'MF',x:50,y:50},{id:'lm',label:'MF',x:30,y:50},
+    {id:'rs',label:'ST',x:62,y:18},{id:'ls',label:'ST',x:38,y:18}
+  ]},
+  '4-1-4-1': { label:'4-1-4-1', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:80,y:72},{id:'rcb',label:'CB',x:60,y:72},
+    {id:'lcb',label:'CB',x:40,y:72},{id:'lb',label:'LB',x:20,y:72},
+    {id:'dm',label:'DM',x:50,y:60},
+    {id:'rm',label:'RM',x:82,y:44},{id:'rcm',label:'MF',x:62,y:44},{id:'lcm',label:'MF',x:38,y:44},{id:'lm',label:'LM',x:18,y:44},
+    {id:'cf',label:'CF',x:50,y:14}
+  ]},
+  '4-3-2-1': { label:'4-3-2-1', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:80,y:72},{id:'rcb',label:'CB',x:60,y:72},
+    {id:'lcb',label:'CB',x:40,y:72},{id:'lb',label:'LB',x:20,y:72},
+    {id:'rm',label:'MF',x:72,y:57},{id:'cm',label:'MF',x:50,y:57},{id:'lm',label:'MF',x:28,y:57},
+    {id:'ram',label:'SS',x:65,y:36},{id:'lam',label:'SS',x:35,y:36},
+    {id:'cf',label:'CF',x:50,y:14}
+  ]},
+  '4-5-1': { label:'4-5-1', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:80,y:72},{id:'rcb',label:'CB',x:60,y:72},
+    {id:'lcb',label:'CB',x:40,y:72},{id:'lb',label:'LB',x:20,y:72},
+    {id:'rm',label:'RM',x:83,y:50},{id:'rcm',label:'MF',x:65,y:50},{id:'cm',label:'MF',x:50,y:47},{id:'lcm',label:'MF',x:35,y:50},{id:'lm',label:'LM',x:17,y:50},
+    {id:'cf',label:'CF',x:50,y:14}
+  ]},
+  '3-6-1': { label:'3-6-1', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:70,y:73},{id:'ccb',label:'CB',x:50,y:73},{id:'lcb',label:'CB',x:30,y:73},
+    {id:'rwb',label:'WB',x:88,y:52},{id:'rdm',label:'MF',x:68,y:50},{id:'rcm',label:'MF',x:55,y:47},
+    {id:'lcm',label:'MF',x:45,y:47},{id:'ldm',label:'MF',x:32,y:50},{id:'lwb',label:'WB',x:12,y:52},
+    {id:'cf',label:'CF',x:50,y:14}
+  ]},
+  // 8人制
+  '3-3-3': { label:'3-3-3 (8人制)', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:70,y:70},{id:'ccb',label:'CB',x:50,y:72},{id:'lcb',label:'CB',x:30,y:70},
+    {id:'rm',label:'MF',x:75,y:48},{id:'cm',label:'MF',x:50,y:45},{id:'lm',label:'MF',x:25,y:48},
+    {id:'rw',label:'FW',x:72,y:18},{id:'cf',label:'CF',x:50,y:14},{id:'lw',label:'FW',x:28,y:18}
+  ]},
+  '2-3-2': { label:'2-3-2 (8人制)', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:65,y:72},{id:'lcb',label:'CB',x:35,y:72},
+    {id:'rm',label:'MF',x:78,y:50},{id:'cm',label:'MF',x:50,y:47},{id:'lm',label:'MF',x:22,y:50},
+    {id:'rs',label:'FW',x:65,y:18},{id:'ls',label:'FW',x:35,y:18}
+  ]},
+  '3-2-2': { label:'3-2-2 (8人制)', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:70,y:70},{id:'ccb',label:'CB',x:50,y:72},{id:'lcb',label:'CB',x:30,y:70},
+    {id:'rcm',label:'MF',x:65,y:48},{id:'lcm',label:'MF',x:35,y:48},
+    {id:'rs',label:'FW',x:65,y:18},{id:'ls',label:'FW',x:35,y:18}
+  ]},
+  '2-4-1': { label:'2-4-1 (8人制)', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rcb',label:'CB',x:65,y:72},{id:'lcb',label:'CB',x:35,y:72},
+    {id:'rm',label:'MF',x:82,y:50},{id:'rcm',label:'MF',x:60,y:50},{id:'lcm',label:'MF',x:40,y:50},{id:'lm',label:'MF',x:18,y:50},
+    {id:'cf',label:'CF',x:50,y:14}
+  ]},
+  '4-1-2': { label:'4-1-2 (7人制)', positions:[
+    {id:'gk',label:'GK',x:50,y:88},{id:'rb',label:'RB',x:78,y:70},{id:'rcb',label:'CB',x:58,y:72},
+    {id:'lcb',label:'CB',x:42,y:72},{id:'lb',label:'LB',x:22,y:70},
+    {id:'dm',label:'MF',x:50,y:52},
+    {id:'rs',label:'FW',x:65,y:16},{id:'ls',label:'FW',x:35,y:16}
+  ]},
+};
+
+function getAllFormations() {
+  const presets = Object.entries(PRESET_FORMATIONS).map(([key, val]) => ({
+    id: key, label: val.label, positions: val.positions, isCustom: false
+  }));
+  const customs = (data.customFormations || []).map(cf => ({
+    id: cf.id, label: cf.name, positions: cf.positions, isCustom: true
+  }));
+  return [...presets, ...customs];
+}
+
+function getFormationById(id) {
+  return getAllFormations().find(f => f.id === id);
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+function save() { localStorage.setItem('soccerDataV2', JSON.stringify(data)); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function today() { return new Date().toISOString().slice(0,10); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+function showConfirm(msg, onOk) {
+  document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  const nb = btn.cloneNode(true); btn.parentNode.replaceChild(nb, btn);
+  nb.addEventListener('click', function() { closeModal('modal-confirm'); onOk(); });
+  openModal('modal-confirm');
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['matches','stats','players'][i] === name);
+  });
+  if (name === 'matches') renderMatchList();
+  if (name === 'stats') renderStats();
+  if (name === 'players') renderPlayerGrid();
+}
+
+// ============================================================
+// FORMATION SELECT DROPDOWN
+// ============================================================
+function rebuildFormationSelect() {
+  const sel = document.getElementById('formation-select');
+  const all = getAllFormations();
+  sel.innerHTML = '';
+  // Group
+  const presetOpts = all.filter(f => !f.isCustom);
+  const customOpts = all.filter(f => f.isCustom);
+  // preset optgroup
+  const pg = document.createElement('optgroup'); pg.label = 'プリセット（11人制）';
+  presetOpts.filter(f => !f.label.includes('人制')).forEach(f => {
+    const o = document.createElement('option'); o.value = f.id; o.textContent = f.label; pg.appendChild(o);
+  });
+  sel.appendChild(pg);
+  const pg8 = document.createElement('optgroup'); pg8.label = 'プリセット（8・7人制）';
+  presetOpts.filter(f => f.label.includes('人制')).forEach(f => {
+    const o = document.createElement('option'); o.value = f.id; o.textContent = f.label; pg8.appendChild(o);
+  });
+  sel.appendChild(pg8);
+  if (customOpts.length) {
+    const cg = document.createElement('optgroup'); cg.label = 'カスタム';
+    customOpts.forEach(f => {
+      const o = document.createElement('option'); o.value = f.id; o.textContent = f.label; cg.appendChild(o);
+    });
+    sel.appendChild(cg);
+  }
+}
+
+// ============================================================
+// PERIOD FORMATION HELPERS
+// ============================================================
+function getPeriodFormation(matchId, periodId) {
+  if (!data.formations[matchId]) data.formations[matchId] = {};
+  if (!data.formations[matchId][periodId]) {
+    data.formations[matchId][periodId] = { formation: '4-3-3', lineup: [], subs: [] };
+  }
+  return data.formations[matchId][periodId];
+}
+function getCurrPF() { return getPeriodFormation(currentMatchId, currentPeriodId); }
+
+// ============================================================
+// DETAIL TAB
+// ============================================================
+function switchDetailTab(tab) {
+  currentDetailTab = tab;
+  document.getElementById('dtab-formation').classList.toggle('active', tab==='formation');
+  document.getElementById('dtab-playtime').classList.toggle('active', tab==='playtime');
+  document.getElementById('detail-formation').style.display = tab==='formation' ? '' : 'none';
+  document.getElementById('detail-playtime').style.display = tab==='playtime' ? '' : 'none';
+  if (tab === 'playtime') renderDetailPlayers();
+  if (tab === 'formation') renderFormationTab();
+}
+
+// ============================================================
+// MATCH
+// ============================================================
+function openNewMatchModal() {
+  document.getElementById('m-type').value = 'practice';
+  document.getElementById('m-title').value = '';
+  document.getElementById('m-date').value = today();
+  document.getElementById('m-period-mins').value = '';
+  document.getElementById('m-period-count').value = '1';
+  document.getElementById('m-note').value = '';
+  openModal('modal-match');
+}
+function saveMatch() {
+  const title = document.getElementById('m-title').value.trim();
+  const pMins = parseInt(document.getElementById('m-period-mins').value);
+  const pCount = Math.max(1, parseInt(document.getElementById('m-period-count').value)||1);
+  if (!title) { alert('タイトルを入力してください'); return; }
+  if (!pMins||pMins<1) { alert('1本あたりの時間を入力してください'); return; }
+  const periods = Array.from({length:pCount},()=>({id:uid(),mins:pMins}));
+  const match = {id:uid(),type:document.getElementById('m-type').value,title,date:document.getElementById('m-date').value,note:document.getElementById('m-note').value.trim(),periods};
+  data.matches.unshift(match);
+  data.playtimes[match.id]={};
+  periods.forEach(p=>{data.playtimes[match.id][p.id]={};});
+  save(); closeModal('modal-match'); renderMatchList();
+}
+function openMatch(id) {
+  currentMatchId = id;
+  const match = data.matches.find(m=>m.id===id);
+  currentPeriodId = match.periods[0].id;
+  currentSort = 'num'; currentDetailTab = 'formation'; currentPitchPhase = 0;
+  showScreen('detail');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sort-chip').forEach(c=>c.classList.remove('active'));
+  const sc = document.getElementById('sort-num'); if(sc) sc.classList.add('active');
+  rebuildFormationSelect();
+  renderDetailHeader(); renderPeriodTabs(); switchDetailTab('formation');
+}
+function setFilter(el, val) {
+  currentFilter = val;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); renderMatchList();
+}
+function renderMatchList() {
+  const grid = document.getElementById('match-grid');
+  let matches = data.matches;
+  if (currentFilter!=='all') matches = matches.filter(m=>m.type===currentFilter);
+  grid.innerHTML = '';
+  if (!matches.length) {
+    const e=document.createElement('div'); e.className='empty-state';
+    e.innerHTML='<div class="icon">📋</div><p>試合がまだありません<br>「＋ 追加」から登録しましょう</p>';
+    grid.appendChild(e); return;
+  }
+  for (const m of matches) {
+    const mid=m.id, totalMins=m.periods.reduce((s,p)=>s+p.mins,0);
+    const times=data.playtimes[mid]||{}; let totalUsed=0; const active=new Set();
+    m.periods.forEach(p=>{Object.entries(times[p.id]||{}).forEach(([pid,v])=>{totalUsed+=v;if(v>0)active.add(pid);});});
+    const fmCount=Object.keys((data.formations[mid]||{})).length;
+    const card=document.createElement('div'); card.className='match-card'+(m.type==='tournament'?' tournament':'');
+    const info=document.createElement('div'); info.className='match-card-info';
+    info.innerHTML='<div class="match-tag '+(m.type==='practice'?'tag-practice':'tag-tournament')+'">'+(m.type==='practice'?'練習試合':'🏆 大会')+'</div>'+
+      '<div class="match-title">'+m.title+'</div>'+
+      '<div class="match-meta"><span>📅 '+m.date+'</span><span>⏱ '+m.periods.length+'本 計'+totalMins+'分</span>'+(fmCount>0?'<span style="color:var(--accent)">🗺 フォーメーション設定済</span>':'')+'</div>'+
+      '<div class="match-meta" style="margin-top:3px"><span>👥 '+active.size+'名出場</span><span>累計 '+totalUsed+'分</span></div>';
+    info.addEventListener('click',()=>openMatch(mid)); card.appendChild(info);
+    const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:8px;padding:0 14px 14px 14px;';
+    const editBtn=document.createElement('button');
+    editBtn.style.cssText='flex:1;background:rgba(0,200,83,0.15);border:1px solid var(--green-dark);color:var(--green-light);font-family:"Noto Sans JP",sans-serif;font-size:12px;padding:8px;border-radius:6px;cursor:pointer;';
+    editBtn.textContent='記録する'; editBtn.addEventListener('click',()=>openMatch(mid));
+    const delBtn=document.createElement('button');
+    delBtn.style.cssText='flex:1;background:rgba(255,23,68,0.15);border:1px solid rgba(255,23,68,0.5);color:#FF1744;font-family:"Noto Sans JP",sans-serif;font-size:12px;padding:8px;border-radius:6px;cursor:pointer;';
+    delBtn.textContent='削除'; delBtn.addEventListener('click',()=>{
+      showConfirm('この試合を削除しますか？',()=>{
+        data.matches=data.matches.filter(x=>x.id!==mid);
+        if(data.playtimes[mid]) delete data.playtimes[mid];
+        if(data.formations[mid]) delete data.formations[mid];
+        save(); renderMatchList();
+      });
+    });
+    actions.appendChild(editBtn); actions.appendChild(delBtn); card.appendChild(actions); grid.appendChild(card);
+  }
+}
+
+// ============================================================
+// DETAIL HEADER
+// ============================================================
+function renderDetailHeader() {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const times=data.playtimes[currentMatchId]||{}; let totalUsed=0;
+  match.periods.forEach(p=>{Object.values(times[p.id]||{}).forEach(v=>totalUsed+=v);});
+  const totalMins=match.periods.reduce((s,p)=>s+p.mins,0);
+  document.getElementById('detail-info-bar').innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:700">${match.title}</div>
+          <button onclick="openEditMatchModal()" style="background:rgba(0,200,83,0.12);border:1px solid var(--green-dark);color:var(--green-light);font-size:11px;padding:3px 9px;border-radius:5px;cursor:pointer;font-family:Noto Sans JP,sans-serif">✏️ 試合情報を編集</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">📅 ${match.date}　${match.type==='practice'?'練習試合':'🏆 大会'}　${match.periods.length}本 計${totalMins}分</div>
+        ${match.note?`<div style="font-size:11px;color:var(--text-muted)">📝 ${match.note}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);line-height:1">${totalUsed}</div>
+        <div style="font-size:10px;color:var(--text-muted)">累計出場(分)</div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// PERIOD TABS
+// ============================================================
+function renderPeriodTabs() {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const wrap=document.getElementById('period-tabs');
+  wrap.innerHTML=match.periods.map((p,i)=>{
+    const pf=(data.formations[currentMatchId]||{})[p.id];
+    const fmLabel=pf?`<div class="period-tab-sub">${getFormationById(pf.formation)?.label||pf.formation}</div>`:'';
+    return `<div class="period-tab ${currentPeriodId===p.id?'active':''}" onclick="selectPeriod('${p.id}')">
+      ${i+1}本目<div style="font-size:10px;font-family:'Noto Sans JP';font-weight:400;letter-spacing:0;color:inherit">${p.mins}分</div>${fmLabel}
+      <button class="del-p" onclick="deletePeriod('${p.id}',event)">✕</button>
+    </div>`;
+  }).join('')+
+  `<span class="tab-all ${currentPeriodId==='all'?'active':''}" onclick="selectPeriod('all')">合計</span>` +
+  `<button class="add-period-btn" onclick="openAddPeriodModal()">＋</button>`;
+}
+function selectPeriod(pid) {
+  currentPeriodId=pid; currentPitchPhase=0;
+  renderPeriodTabs();
+  if(pid==='all') {
+    // 合計選択時はプレータイムタブに切り替え
+    switchDetailTab('playtime');
+  } else {
+    if(currentDetailTab==='formation') renderFormationTab(); else renderDetailPlayers();
+  }
+}
+function openAddPeriodModal() {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  document.getElementById('pa-mins').value=match.periods.length?match.periods[match.periods.length-1].mins:'';
+  openModal('modal-period');
+}
+function savePeriod() {
+  const mins=parseInt(document.getElementById('pa-mins').value);
+  if(!mins||mins<1){alert('時間を入力してください');return;}
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const np={id:uid(),mins};
+  match.periods.push(np);
+  if(!data.playtimes[currentMatchId]) data.playtimes[currentMatchId]={};
+  data.playtimes[currentMatchId][np.id]={};
+  save(); closeModal('modal-period'); renderDetailHeader(); renderPeriodTabs();
+}
+function deletePeriod(pid,e) {
+  e.stopPropagation(); e.preventDefault();
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  if(match.periods.length<=1){alert('最低1本は必要です');return;}
+  showConfirm('この本を削除しますか？',()=>{
+    match.periods=match.periods.filter(p=>p.id!==pid);
+    if(data.playtimes[currentMatchId]) delete data.playtimes[currentMatchId][pid];
+    if(data.formations[currentMatchId]) delete data.formations[currentMatchId][pid];
+    if(currentPeriodId===pid) currentPeriodId=match.periods[0].id;
+    save(); renderDetailHeader(); renderPeriodTabs();
+    if(currentDetailTab==='formation') renderFormationTab(); else renderDetailPlayers();
+  });
+}
+
+// ============================================================
+// FORMATION TAB
+// ============================================================
+function updateDeleteCustomBtn(fmId) {
+  const btn=document.getElementById('btn-delete-custom-fm');
+  if(!btn) return;
+  const isCustom=(data.customFormations||[]).some(cf=>cf.id===fmId);
+  btn.style.display=isCustom?'':'none';
+}
+function renderFormationTab() {
+  const pf=getCurrPF();
+  const sel=document.getElementById('formation-select');
+  sel.value=pf.formation;
+  updateDeleteCustomBtn(pf.formation);
+  renderPhaseSwitcher();
+  renderPitch();
+  renderSubList();
+  renderBench();
+}
+function onFormationChange() {
+  const pf=getCurrPF();
+  const newFm=document.getElementById('formation-select').value;
+  pf.formation=newFm;
+  updateDeleteCustomBtn(newFm);
+  const newPosIds=new Set((getFormationById(newFm)?.positions||[]).map(p=>p.id));
+  pf.lineup=pf.lineup.filter(l=>newPosIds.has(l.posId));
+  save(); renderPeriodTabs(); renderPhaseSwitcher(); renderPitch(); renderBench();
+}
+function deleteCurrentCustomFormation() {
+  const pf=getCurrPF();
+  const fmId=pf.formation;
+  const cf=data.customFormations.find(c=>c.id===fmId);
+  if(!cf) return;
+  showConfirm(`カスタムフォーメーション「${cf.name}」を削除しますか？`, ()=>{
+    data.customFormations=data.customFormations.filter(c=>c.id!==fmId);
+    pf.formation='4-3-3';
+    save();
+    rebuildFormationSelect();
+    renderFormationTab();
+    renderPeriodTabs();
+  });
+}
+
+// ============================================================
+// PHASE SWITCHER (before / after each sub)
+// ============================================================
+function renderPhaseSwitcher() {
+  const pf=getCurrPF();
+  const sw=document.getElementById('phase-switcher');
+  if(!pf.subs||pf.subs.length===0){sw.style.display='none';currentPitchPhase=0;return;}
+  sw.style.display='flex';
+  const sortedSubs=[...pf.subs].sort((a,b)=>a.time-b.time);
+  let html=`<button class="phase-btn ${currentPitchPhase===0?'active':''}" onclick="setPitchPhase(0)">開始時</button>`;
+  sortedSubs.forEach((sub,i)=>{
+    html+=`<button class="phase-btn ${currentPitchPhase===i+1?'active':''}" onclick="setPitchPhase(${i+1})">${sub.time}'後</button>`;
+  });
+  sw.innerHTML=html;
+}
+function setPitchPhase(phase) {
+  currentPitchPhase=phase;
+  renderPhaseSwitcher(); renderPitch();
+  const pf=getCurrPF();
+  const sortedSubs=[...pf.subs].sort((a,b)=>a.time-b.time);
+  const titleEl=document.getElementById('pitch-title-label');
+  if(phase===0) titleEl.textContent='🏟 スターティングメンバー';
+  else titleEl.textContent=`🏟 ${sortedSubs[phase-1].time}分 交代後`;
+}
+
+// ============================================================
+// PITCH RENDER
+// ============================================================
+function buildPhaseLineup(pf, phase) {
+  // Start with starting lineup
+  const lineup = {}; // posId -> {playerId, changed}
+  pf.lineup.forEach(l => { lineup[l.posId] = {playerId: l.playerId, changed: false}; });
+
+  const sortedSubs = [...(pf.subs||[])].sort((a,b)=>a.time-b.time);
+  for (let i = 0; i < phase; i++) {
+    const sub = sortedSubs[i];
+    // Find which position the outgoing player is in
+    const posEntry = Object.entries(lineup).find(([pid, v]) => v.playerId === sub.outId);
+    if (posEntry) {
+      const posId = sub.posId || posEntry[0];
+      lineup[posId] = { playerId: sub.inId, changed: true };
+    }
+  }
+  return lineup;
+}
+
+function renderPitch() {
+  const pf = getCurrPF();
+  const fDef = getFormationById(pf.formation);
+  if (!fDef) return;
+  const field = document.getElementById('pitch-field');
+  field.querySelectorAll('.player-dot').forEach(d=>d.remove());
+
+  const phaseLineup = buildPhaseLineup(pf, currentPitchPhase);
+
+  fDef.positions.forEach(pos => {
+    const entry = phaseLineup[pos.id];
+    const player = entry ? data.players.find(p=>p.id===entry.playerId) : null;
+    const dot = document.createElement('div');
+    dot.className = 'player-dot';
+    dot.style.left = pos.x+'%';
+    dot.style.top = pos.y+'%';
+
+    const circle = document.createElement('div');
+    let circleClass = 'player-dot-circle';
+    if (!player) circleClass += ' empty';
+    else if (pos.id === 'gk') circleClass += ' gk';
+    else if (entry && entry.changed) circleClass += ' sub-changed';
+    circle.className = circleClass;
+    circle.textContent = player ? player.number : '＋';
+
+    // Sub indicator
+    if (player && entry && entry.changed) {
+      const ind = document.createElement('div');
+      ind.className = 'sub-indicator in';
+      ind.textContent = '↑';
+      circle.style.position = 'relative';
+      circle.appendChild(ind);
+    }
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'player-dot-name';
+    nameDiv.textContent = player ? player.name : pos.label;
+
+    dot.appendChild(circle); dot.appendChild(nameDiv);
+    dot.addEventListener('click', () => { if(currentPitchPhase===0) openAssignModal(pos.id, pos.label); });
+    if (currentPitchPhase > 0) dot.style.cursor = 'default';
+    field.appendChild(dot);
+  });
+
+  const titleEl = document.getElementById('pitch-title-label');
+  if (currentPitchPhase === 0) titleEl.textContent = '🏟 スターティングメンバー（タップで選手配置）';
+  else {
+    const sortedSubs=[...pf.subs].sort((a,b)=>a.time-b.time);
+    titleEl.textContent = `🏟 ${sortedSubs[currentPitchPhase-1].time}分 交代後の布陣`;
+  }
+}
+
+// ============================================================
+// ASSIGN
+// ============================================================
+function openAssignModal(posId, posLabel) {
+  assigningPosId = posId;
+  document.getElementById('assign-modal-title').textContent = posLabel + ' の選手を選択';
+  const pf = getCurrPF();
+  const usedIds = new Set(pf.lineup.filter(l=>l.posId!==posId).map(l=>l.playerId));
+  const currentAssign = pf.lineup.find(l=>l.posId===posId);
+  const list = document.getElementById('assign-list');
+  const sorted = [...data.players].sort((a,b)=>a.number-b.number);
+  list.innerHTML = sorted.map(p => {
+    const isSel = currentAssign && currentAssign.playerId===p.id;
+    const isUsed = usedIds.has(p.id);
+    return `<div class="assign-item ${isSel?'selected':''} ${isUsed?'already-used':''}" onclick="doAssign('${p.id}')">
+      <div class="assign-num">${p.number}</div>
+      <div style="font-size:13px;flex:1">${p.name}</div>
+      ${isSel?'<span style="color:var(--green);font-size:13px">✓</span>':''}
+    </div>`;
+  }).join('');
+  openModal('modal-assign');
+}
+function doAssign(playerId) {
+  const pf=getCurrPF();
+  pf.lineup=pf.lineup.filter(l=>l.posId!==assigningPosId);
+  pf.lineup.push({posId:assigningPosId,playerId});
+  save(); closeModal('modal-assign'); renderPitch(); renderBench();
+}
+function clearAssign() {
+  const pf=getCurrPF();
+  pf.lineup=pf.lineup.filter(l=>l.posId!==assigningPosId);
+  save(); closeModal('modal-assign'); renderPitch(); renderBench();
+}
+
+// ============================================================
+// BENCH
+// ============================================================
+function renderBench() {
+  const pf=getCurrPF();
+  const starterIds=new Set(pf.lineup.map(l=>l.playerId));
+  const bench=data.players.filter(p=>!starterIds.has(p.id)).sort((a,b)=>a.number-b.number);
+  const el=document.getElementById('bench-list');
+  if(!bench.length){el.innerHTML='<span style="font-size:12px;color:var(--text-muted)">全員スターターに配置済み</span>';return;}
+  el.innerHTML=bench.map(p=>`<div style="display:flex;align-items:center;gap:5px;background:var(--pitch-mid);border:1px solid var(--border);border-radius:7px;padding:5px 9px">
+    <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:12px;color:var(--text-muted)">${p.number}</div>
+    <span style="font-size:12px">${p.name}</span>
+  </div>`).join('');
+}
+
+// ============================================================
+// SUBSTITUTION
+// ============================================================
+function openAddSubModal() {
+  const pf=getCurrPF();
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  document.getElementById('sub-time').value='';
+
+  const starterIds=new Set(pf.lineup.map(l=>l.playerId));
+  const subbedInIds=new Set(pf.subs.map(s=>s.inId));
+  const subbedOutIds=new Set(pf.subs.map(s=>s.outId));
+  const outOptions=data.players.filter(p=>(starterIds.has(p.id)||subbedInIds.has(p.id))&&!subbedOutIds.has(p.id)).sort((a,b)=>a.number-b.number);
+  const onFieldIds=new Set([...starterIds,...subbedInIds]);
+  const inOptions=data.players.filter(p=>!onFieldIds.has(p.id)||subbedOutIds.has(p.id)).sort((a,b)=>a.number-b.number);
+
+  const outSel=document.getElementById('sub-out');
+  const posSel=document.getElementById('sub-out-pos');
+  const inSel=document.getElementById('sub-in');
+  outSel.innerHTML=outOptions.map(p=>`<option value="${p.id}">${p.number} ${p.name}</option>`).join('');
+  inSel.innerHTML=inOptions.map(p=>`<option value="${p.id}">${p.number} ${p.name}</option>`).join('');
+
+  // Build position select based on selected out player's position
+  function rebuildPosSel() {
+    const outId=outSel.value;
+    const fDef=getFormationById(pf.formation);
+    // Find positions that have this player in current phase or start
+    const lineup=buildPhaseLineup(pf, (pf.subs||[]).length);
+    const posWithPlayer=Object.entries(lineup).filter(([pid,v])=>v.playerId===outId).map(([pid])=>pid);
+    const allPos=fDef?fDef.positions:[];
+    posSel.innerHTML=allPos.map(p=>`<option value="${p.id}" ${posWithPlayer.includes(p.id)?'selected':''}>${p.label}(${p.id})</option>`).join('');
+  }
+  rebuildPosSel();
+  outSel.addEventListener('change', rebuildPosSel);
+  openModal('modal-sub');
+}
+function saveSub() {
+  const time=parseInt(document.getElementById('sub-time').value);
+  const outId=document.getElementById('sub-out').value;
+  const inId=document.getElementById('sub-in').value;
+  const posId=document.getElementById('sub-out-pos').value;
+  if(isNaN(time)){alert('交代時間を入力してください');return;}
+  if(!outId||!inId){alert('選手を選択してください');return;}
+  if(outId===inId){alert('同じ選手を選択しています');return;}
+  const pf=getCurrPF();
+  pf.subs.push({id:uid(),time,outId,inId,posId});
+  pf.subs.sort((a,b)=>a.time-b.time);
+  save(); closeModal('modal-sub'); renderPhaseSwitcher(); renderSubList(); renderBench();
+}
+function deleteSub(subId) {
+  const pf=getCurrPF();
+  pf.subs=pf.subs.filter(s=>s.id!==subId);
+  if(currentPitchPhase>pf.subs.length) currentPitchPhase=0;
+  save(); renderPhaseSwitcher(); renderPitch(); renderSubList(); renderBench();
+}
+function renderSubList() {
+  const pf=getCurrPF();
+  const el=document.getElementById('sub-list');
+  if(!pf.subs||!pf.subs.length){
+    el.innerHTML='<div class="empty-state" style="padding:18px"><p>交代プランがありません</p></div>';return;
+  }
+  el.innerHTML=[...pf.subs].sort((a,b)=>a.time-b.time).map(sub=>{
+    const out=data.players.find(p=>p.id===sub.outId);
+    const ins=data.players.find(p=>p.id===sub.inId);
+    return `<div class="sub-row">
+      <div class="sub-time-badge">${sub.time}'</div>
+      <span style="font-size:13px">🔄</span>
+      <div class="sub-num out">${out?out.number:'?'}</div>
+      <span style="font-size:12px;color:var(--red);flex:1">${out?out.name:'?'}</span>
+      <span style="color:var(--text-muted);font-size:12px">→</span>
+      <div class="sub-num in">${ins?ins.number:'?'}</div>
+      <span style="font-size:12px;color:var(--green);flex:1">${ins?ins.name:'?'}</span>
+      <button onclick="deleteSub('${sub.id}')" style="background:none;border:none;color:rgba(255,23,68,0.5);font-size:13px;cursor:pointer;padding:0">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// APPLY PLAN TO PLAYTIME
+// ============================================================
+function applyPlanToPlaytime() {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const period=match.periods.find(p=>p.id===currentPeriodId);
+  if(!period) return;
+  const pf=getCurrPF();
+  const totalMins=period.mins;
+  if(!data.playtimes[currentMatchId]) data.playtimes[currentMatchId]={};
+  if(!data.playtimes[currentMatchId][currentPeriodId]) data.playtimes[currentMatchId][currentPeriodId]={};
+  const times=data.playtimes[currentMatchId][currentPeriodId];
+  const playerMins=computePlanMins();
+  Object.entries(playerMins).forEach(([pid,mins])=>{if(mins>0) times[pid]=Math.round(mins);});
+  save(); alert('✅ プレータイムに反映しました！'); switchDetailTab('playtime');
+}
+function computePlanMins() {
+  const pf=(data.formations[currentMatchId]||{})[currentPeriodId];
+  if(!pf) return {};
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const period=match.periods.find(p=>p.id===currentPeriodId);
+  const totalMins=period.mins;
+  const starterIds=new Set(pf.lineup.map(l=>l.playerId));
+  const sortedSubs=[...pf.subs].sort((a,b)=>a.time-b.time);
+  const playerMins={};
+  let onField=new Set(starterIds); let prevTime=0;
+  for(const sub of sortedSubs){
+    const t=Math.min(sub.time,totalMins);
+    const elapsed=t-prevTime;
+    onField.forEach(pid=>{playerMins[pid]=(playerMins[pid]||0)+elapsed;});
+    onField.delete(sub.outId); onField.add(sub.inId); prevTime=t;
+  }
+  const remaining=totalMins-prevTime;
+  onField.forEach(pid=>{playerMins[pid]=(playerMins[pid]||0)+remaining;});
+  Object.keys(playerMins).forEach(k=>{playerMins[k]=Math.round(playerMins[k]);});
+  return playerMins;
+}
+
+// ============================================================
+// EDIT MATCH
+// ============================================================
+function openEditMatchModal() {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  document.getElementById('em-type').value=match.type;
+  document.getElementById('em-title').value=match.title;
+  document.getElementById('em-date').value=match.date;
+  document.getElementById('em-note').value=match.note||'';
+  const list=document.getElementById('em-periods-list');
+  list.innerHTML=match.periods.map((p,i)=>`<div style="display:flex;align-items:center;gap:8px">
+    <div style="font-size:12px;color:var(--text-muted);min-width:40px;flex-shrink:0">${i+1}本目</div>
+    <input type="number" id="em-period-${p.id}" value="${p.mins}" min="1" max="120" style="flex:1;background:var(--pitch-mid);border:1px solid var(--border);color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:16px;text-align:center;border-radius:7px;padding:7px;outline:none;">
+    <span style="font-size:11px;color:var(--text-muted)">分</span>
+  </div>`).join('');
+  openModal('modal-edit-match');
+}
+function saveEditMatch() {
+  const title=document.getElementById('em-title').value.trim();
+  if(!title){alert('タイトルを入力してください');return;}
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  match.type=document.getElementById('em-type').value;
+  match.title=title; match.date=document.getElementById('em-date').value;
+  match.note=document.getElementById('em-note').value.trim();
+  let valid=true;
+  match.periods.forEach(p=>{const val=parseInt(document.getElementById('em-period-'+p.id).value);if(!val||val<1){valid=false;return;}p.mins=val;});
+  if(!valid){alert('各本の時間を正しく入力してください');return;}
+  save(); closeModal('modal-edit-match');
+  renderDetailHeader(); renderPeriodTabs();
+  if(currentDetailTab==='formation') renderFormationTab(); else renderDetailPlayers();
+}
+
+// ============================================================
+// SORT & PLAYTIME
+// ============================================================
+function setSort(val) {
+  currentSort=val;
+  document.querySelectorAll('.sort-chip').forEach(c=>c.classList.remove('active'));
+  document.getElementById('sort-'+val).classList.add('active');
+  renderDetailPlayers();
+}
+function getTotalAcrossAll(match, player) {
+  const times=data.playtimes[currentMatchId]||{};
+  return match.periods.reduce((s,p)=>s+((times[p.id]||{})[player.id]||0),0);
+}
+function getSortedPlayersAll(match) {
+  const players=[...data.players];
+  if(currentSort==='time-desc') return players.sort((a,b)=>getTotalAcrossAll(match,b)-getTotalAcrossAll(match,a));
+  if(currentSort==='time-asc') return players.sort((a,b)=>getTotalAcrossAll(match,a)-getTotalAcrossAll(match,b));
+  return players.sort((a,b)=>a.number-b.number);
+}
+function getSortedPlayers(match) {
+  const times=data.playtimes[currentMatchId]||{};
+  const players=[...data.players];
+  const getTotal=player=>(times[currentPeriodId]||{})[player.id]||0;
+  if(currentSort==='time-desc') return players.sort((a,b)=>getTotal(b)-getTotal(a));
+  if(currentSort==='time-asc') return players.sort((a,b)=>getTotal(a)-getTotal(b));
+  return players.sort((a,b)=>a.number-b.number);
+}
+function renderAllView(match, players, container) {
+  const times=data.playtimes[currentMatchId]||{};
+  const totalMins=match.periods.reduce((s,p)=>s+p.mins,0);
+  container.innerHTML=players.map(player=>{
+    const perPeriod=match.periods.map(p=>(times[p.id]||{})[player.id]||0);
+    const total=perPeriod.reduce((s,v)=>s+v,0);
+    const pct=totalMins>0?Math.min(100,Math.round(total/totalMins*100)):0;
+    const segs=match.periods.map((p,pi)=>{
+      const w=totalMins>0?(perPeriod[pi]/totalMins*100):0;
+      if(!w) return '';
+      return `<div class="stacked-seg" style="width:${w}%;background:${COLORS[pi%COLORS.length]};min-width:${w>0?'1px':'0'}">
+        ${w>=7?`<span class="seg-lbl">${pi+1}</span>`:''}
+      </div>`;
+    }).join('');
+    const detail=match.periods.map((p,pi)=>
+      `<span style="color:${COLORS[pi%COLORS.length]};font-size:11px;white-space:nowrap">${pi+1}本:${perPeriod[pi]}分</span>`
+    ).join(' ');
+    return `<div class="player-row">
+      <div class="player-row-top">
+        <div class="player-num">${player.number}</div>
+        <div class="player-name">${player.name}</div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent);line-height:1">${total}<small style="font-size:11px;color:var(--text-muted)">分</small></div>
+          <div style="font-size:10px;color:var(--text-muted)">${pct}% / ${totalMins}分</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px">${detail}</div>
+      <div class="bar-wrap"><div class="stacked-bar">${segs}</div></div>
+    </div>`;
+  }).join('');
+}
+function getPlayerRole(playerId) {
+  const pf=(data.formations[currentMatchId]||{})[currentPeriodId];
+  if(!pf) return 'bench';
+  if(pf.lineup.find(l=>l.playerId===playerId)) return 'starter';
+  if(pf.subs.find(s=>s.inId===playerId)) return 'sub';
+  return 'bench';
+}
+function renderDetailPlayers() {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const container=document.getElementById('detail-players');
+  if(!data.players.length){container.innerHTML=`<div class="empty-state"><div class="icon">👟</div><p>「選手管理」から選手を登録してください</p></div>`;return;}
+  if(currentPeriodId==='all'){renderAllView(match,getSortedPlayersAll(match),container);return;}
+  const players=getSortedPlayers(match);
+  const period=match.periods.find(p=>p.id===currentPeriodId);
+  const times=(data.playtimes[currentMatchId]||{})[currentPeriodId]||{};
+  const color=COLORS[match.periods.findIndex(p=>p.id===currentPeriodId)%COLORS.length];
+  const planMins=computePlanMins();
+  container.innerHTML=players.map(player=>{
+    const mins=times[player.id]||0;
+    const pct=Math.min(100,Math.round(mins/period.mins*100));
+    const role=getPlayerRole(player.id);
+    const roleLabel=role==='starter'?'<span class="player-role-badge badge-starter">先発</span>':role==='sub'?'<span class="player-role-badge badge-sub">交代IN</span>':'<span class="player-role-badge badge-bench">ベンチ</span>';
+    const planMin=planMins[player.id];
+    const fromPlanBtn=planMin!==undefined?`<button class="quick-btn from-plan" onclick="setTimeVal('${player.id}',${planMin})">📋 プランから(${planMin}分)</button>`:'';
+    return `<div class="player-row ${role==='starter'?'is-starter':role==='sub'?'is-sub':''}" id="prow-${player.id}">
+      <div class="player-row-top">
+        <div class="player-num">${player.number}</div>
+        <div class="player-name">${player.name}</div>${roleLabel}
+        <div class="time-controls">
+          <button class="time-btn minus" onclick="adjustTime('${player.id}',-5)">−5</button>
+          <button class="time-btn minus" onclick="adjustTime('${player.id}',-1)">−</button>
+          <input class="time-input-direct" type="number" min="0" max="${period.mins}" value="${mins}" id="tinput-${player.id}" onchange="setTimeVal('${player.id}',this.value)">
+          <button class="time-btn plus" onclick="adjustTime('${player.id}',1)">＋</button>
+          <button class="time-btn plus" onclick="adjustTime('${player.id}',5)">＋5</button>
+        </div>
+        <div class="total-mins" id="tdisp-${player.id}">${mins}<small style="font-size:10px;color:var(--text-muted)">分</small></div>
+      </div>
+      <div class="quick-btns">${fromPlanBtn}<button class="quick-btn" onclick="setTimeVal('${player.id}',${Math.round(period.mins*0.25)})">25%</button><button class="quick-btn" onclick="setTimeVal('${player.id}',${Math.round(period.mins*0.5)})">半分</button><button class="quick-btn" onclick="setTimeVal('${player.id}',${Math.round(period.mins*0.75)})">75%</button><button class="quick-btn" onclick="setTimeVal('${player.id}',${period.mins})">全出場</button><button class="quick-btn zero" onclick="setTimeVal('${player.id}',0)">出場なし</button></div>
+      <div class="bar-wrap"><div class="bar-fill" id="bar-${player.id}" style="width:${pct}%;background:${color}">${pct>=15?`<span class="bar-pct">${pct}%</span>`:''}</div></div>
+    </div>`;
+  }).join('');
+}
+function adjustTime(playerId,delta) {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const period=match.periods.find(p=>p.id===currentPeriodId); if(!period) return;
+  if(!data.playtimes[currentMatchId]) data.playtimes[currentMatchId]={};
+  if(!data.playtimes[currentMatchId][currentPeriodId]) data.playtimes[currentMatchId][currentPeriodId]={};
+  let cur=data.playtimes[currentMatchId][currentPeriodId][playerId]||0;
+  cur=Math.max(0,Math.min(period.mins,cur+delta));
+  data.playtimes[currentMatchId][currentPeriodId][playerId]=cur;
+  save(); updateBar(playerId,cur,period.mins); renderDetailHeader();
+}
+function setTimeVal(playerId,val) {
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const period=match.periods.find(p=>p.id===currentPeriodId); if(!period) return;
+  if(!data.playtimes[currentMatchId]) data.playtimes[currentMatchId]={};
+  if(!data.playtimes[currentMatchId][currentPeriodId]) data.playtimes[currentMatchId][currentPeriodId]={};
+  let mins=Math.max(0,Math.min(period.mins,parseInt(val)||0));
+  data.playtimes[currentMatchId][currentPeriodId][playerId]=mins;
+  save(); updateBar(playerId,mins,period.mins); renderDetailHeader();
+}
+function updateBar(playerId,mins,periodMins) {
+  const pct=Math.min(100,Math.round(mins/periodMins*100));
+  const match=data.matches.find(m=>m.id===currentMatchId);
+  const periodIdx=match.periods.findIndex(p=>p.id===currentPeriodId);
+  const color=COLORS[periodIdx%COLORS.length];
+  const disp=document.getElementById('tdisp-'+playerId);
+  if(disp) disp.innerHTML=`${mins}<small style="font-size:10px;color:var(--text-muted)">分</small>`;
+  const inp=document.getElementById('tinput-'+playerId); if(inp) inp.value=mins;
+  const bar=document.getElementById('bar-'+playerId);
+  if(bar){bar.style.width=pct+'%';bar.style.background=color;bar.innerHTML=pct>=15?`<span class="bar-pct">${pct}%</span>`:'';}
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function renderStats() {
+  let totalMinutes=0;
+  data.matches.forEach(m=>{m.periods.forEach(p=>{Object.values((data.playtimes[m.id]||{})[p.id]||{}).forEach(v=>totalMinutes+=v);});});
+  document.getElementById('stats-summary').innerHTML=`
+    <div class="stat-card"><div class="stat-num">${data.matches.length}</div><div class="stat-lbl">試合数</div></div>
+    <div class="stat-card"><div class="stat-num">${data.players.length}</div><div class="stat-lbl">登録選手</div></div>
+    <div class="stat-card"><div class="stat-num">${totalMinutes}</div><div class="stat-lbl">総出場分</div></div>`;
+  const chart=document.getElementById('stats-chart');
+  if(!data.players.length||!data.matches.length){chart.innerHTML=`<div class="empty-state"><div class="icon">📊</div><p>データがありません</p></div>`;return;}
+  const sortedMatches=[...data.matches].sort((a,b)=>a.date.localeCompare(b.date));
+  const playerTotals={};const playerMatchMins={};
+  data.players.forEach(p=>{playerTotals[p.id]=0;playerMatchMins[p.id]=[];});
+  sortedMatches.forEach(m=>{data.players.forEach(player=>{let t=0;m.periods.forEach(period=>{t+=((data.playtimes[m.id]||{})[period.id]||{})[player.id]||0;});playerMatchMins[player.id].push(t);playerTotals[player.id]+=t;});});
+  const sorted=[...data.players].sort((a,b)=>playerTotals[b.id]-playerTotals[a.id]);
+  const maxTotal=Math.max(...sorted.map(p=>playerTotals[p.id]),1);
+  chart.innerHTML=`<div class="chart-title">📊 選手別 累計出場時間</div>${sorted.map(p=>{
+    const total=playerTotals[p.id];
+    const segs=playerMatchMins[p.id].map((mins,mi)=>{const w=maxTotal>0?(mins/maxTotal*100):0;return w>0?`<div class="stacked-seg" style="width:${w}%;background:${COLORS[mi%COLORS.length]}">${w>=8?`<span class="seg-lbl">${mins}</span>`:''}</div>`:''}).join('');
+    return `<div class="chart-row"><div class="chart-name">${p.number} ${p.name}</div><div class="chart-bar-area"><div class="stacked-bar">${segs}</div></div><div class="chart-val">${total}<span style="font-size:9px;color:var(--text-muted)">分</span></div></div>`;
+  }).join('')}<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:5px">${sortedMatches.map((m,i)=>`<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:9px;height:9px;border-radius:2px;background:${COLORS[i%COLORS.length]};display:inline-block"></span>${m.date} ${m.title}</span>`).join('')}</div>`;
+}
+
+// ============================================================
+// PLAYERS
+// ============================================================
+function renderPlayerGrid() {
+  const grid=document.getElementById('player-grid');
+  if(!data.players.length){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="icon">👟</div><p>選手がいません</p></div>`;return;}
+  grid.innerHTML=[...data.players].sort((a,b)=>a.number-b.number).map(p=>`<div class="player-chip"><div class="num">${p.number}</div><div class="name">${p.name}</div><button class="del" onclick="deletePlayer('${p.id}')">✕</button></div>`).join('');
+}
+function openNewPlayerModal() {document.getElementById('p-num').value='';document.getElementById('p-name').value='';openModal('modal-player');}
+function savePlayer() {
+  const num=parseInt(document.getElementById('p-num').value);
+  const name=document.getElementById('p-name').value.trim();
+  if(!num||num<1||num>99){alert('背番号は1〜99で入力してください');return;}
+  if(!name){alert('名前を入力してください');return;}
+  if(data.players.length>=30){alert('選手は最大30名です');return;}
+  if(data.players.find(p=>p.number===num)){alert('その背番号はすでに使用されています');return;}
+  data.players.push({id:uid(),number:num,name});
+  save();closeModal('modal-player');renderPlayerGrid();
+}
+function deletePlayer(id) { showConfirm('この選手を削除しますか？',()=>{data.players=data.players.filter(p=>p.id!==id);save();renderPlayerGrid();}); }
+
+// ============================================================
+// CUSTOM FORMATION EDITOR
+// ============================================================
+let _dragTarget = null;
+let _dragOffset = {x:0, y:0};
+let _pitchRect = null;
+
+function openCustomFormationScreen() {
+  customEditingId = null;
+  document.getElementById('custom-fm-name').value = '';
+  // Start with a basic template
+  customPosData = [
+    {id:'gk',label:'GK',x:50,y:88},
+    {id:'cb1',label:'CB',x:65,y:72},{id:'cb2',label:'CB',x:35,y:72},
+    {id:'mf1',label:'MF',x:70,y:50},{id:'mf2',label:'MF',x:50,y:48},{id:'mf3',label:'MF',x:30,y:50},
+    {id:'fw1',label:'FW',x:60,y:20},{id:'fw2',label:'FW',x:40,y:20},
+  ];
+  selectedCustomPosId = null;
+  showScreen('custom-formation');
+  renderCustomPitch();
+  renderCustomPosList();
+  renderSavedCustomList();
+}
+
+function closeCustomFormationScreen() {
+  showScreen('detail');
+  rebuildFormationSelect();
+  renderFormationTab();
+}
+
+function renderCustomPitch() {
+  const pitch = document.getElementById('custom-pitch');
+  pitch.querySelectorAll('.custom-pos-dot').forEach(d=>d.remove());
+  customPosData.forEach(pos => {
+    const dot = document.createElement('div');
+    dot.className = 'custom-pos-dot' + (pos.id==='gk'?' gk-dot':'') + (selectedCustomPosId===pos.id?' selected':'');
+    dot.style.left = pos.x+'%';
+    dot.style.top = pos.y+'%';
+    dot.textContent = pos.label;
+    dot.dataset.posId = pos.id;
+    dot.addEventListener('pointerdown', startDrag);
+    dot.addEventListener('click', ()=>selectCustomPos(pos.id));
+    pitch.appendChild(dot);
+  });
+}
+
+function selectCustomPos(posId) {
+  selectedCustomPosId = posId;
+  renderCustomPitch();
+  renderCustomPosList();
+}
+
+function startDrag(e) {
+  e.preventDefault();
+  _dragTarget = e.currentTarget;
+  const pitch = document.getElementById('custom-pitch');
+  _pitchRect = pitch.getBoundingClientRect();
+  const posId = _dragTarget.dataset.posId;
+  selectedCustomPosId = posId;
+  const pos = customPosData.find(p=>p.id===posId);
+  const dotRect = _dragTarget.getBoundingClientRect();
+  _dragOffset.x = e.clientX - dotRect.left - dotRect.width/2;
+  _dragOffset.y = e.clientY - dotRect.top - dotRect.height/2;
+  document.addEventListener('pointermove', onDrag);
+  document.addEventListener('pointerup', endDrag);
+  renderCustomPosList();
+}
+function onDrag(e) {
+  if(!_dragTarget) return;
+  const x = Math.max(0, Math.min(100, (e.clientX - _dragOffset.x - _pitchRect.left) / _pitchRect.width * 100));
+  const y = Math.max(0, Math.min(100, (e.clientY - _dragOffset.y - _pitchRect.top) / _pitchRect.height * 100));
+  const posId = _dragTarget.dataset.posId;
+  const pos = customPosData.find(p=>p.id===posId);
+  if(pos){pos.x=Math.round(x*10)/10;pos.y=Math.round(y*10)/10;}
+  _dragTarget.style.left = x+'%';
+  _dragTarget.style.top = y+'%';
+}
+function endDrag() {
+  _dragTarget=null;
+  document.removeEventListener('pointermove',onDrag);
+  document.removeEventListener('pointerup',endDrag);
+  renderCustomPosList();
+}
+
+function renderCustomPosList() {
+  const el=document.getElementById('custom-pos-list');
+  el.innerHTML=customPosData.map(pos=>`<div class="custom-pos-row ${selectedCustomPosId===pos.id?'selected':''}" onclick="selectCustomPos('${pos.id}')">
+    <div class="custom-pos-badge ${pos.id==='gk'?'gk-badge':''}">${pos.label}</div>
+    <div style="flex:1;font-size:13px">${pos.label}</div>
+    <div style="font-size:10px;color:var(--text-muted)">${Math.round(pos.x)}%, ${Math.round(pos.y)}%</div>
+    <button onclick="event.stopPropagation();openEditPosName('${pos.id}')" style="background:rgba(0,200,83,0.1);border:1px solid var(--green-dark);color:var(--green-light);font-size:10px;padding:3px 7px;border-radius:4px;cursor:pointer;">名前</button>
+  </div>`).join('');
+}
+
+function addCustomPosition() {
+  const newId = 'pos_'+uid();
+  customPosData.push({id:newId,label:'MF',x:50,y:50});
+  selectedCustomPosId=newId;
+  renderCustomPitch(); renderCustomPosList();
+}
+function deleteSelectedPos() {
+  if(!selectedCustomPosId){alert('ポジションを選択してください');return;}
+  if(customPosData.length<=1){alert('最低1つは必要です');return;}
+  customPosData=customPosData.filter(p=>p.id!==selectedCustomPosId);
+  selectedCustomPosId=null;
+  renderCustomPitch(); renderCustomPosList();
+}
+
+let editingPosId=null;
+function openEditPosName(posId) {
+  editingPosId=posId;
+  const pos=customPosData.find(p=>p.id===posId);
+  document.getElementById('edit-pos-name').value=pos?pos.label:'';
+  openModal('modal-edit-pos');
+}
+function applyPosName() {
+  const name=document.getElementById('edit-pos-name').value.trim().toUpperCase();
+  if(!name){alert('名前を入力してください');return;}
+  const pos=customPosData.find(p=>p.id===editingPosId);
+  if(pos) pos.label=name;
+  closeModal('modal-edit-pos'); renderCustomPitch(); renderCustomPosList();
+}
+
+function saveCustomFormation() {
+  const name=document.getElementById('custom-fm-name').value.trim();
+  if(!name){alert('フォーメーション名を入力してください');return;}
+  if(customPosData.length<1){alert('ポジションが必要です');return;}
+  if(customEditingId) {
+    const existing=data.customFormations.find(cf=>cf.id===customEditingId);
+    if(existing){existing.name=name;existing.positions=JSON.parse(JSON.stringify(customPosData));}
+  } else {
+    data.customFormations.push({id:uid(),name,positions:JSON.parse(JSON.stringify(customPosData))});
+  }
+  save(); alert('✅ カスタムフォーメーションを保存しました');
+  customEditingId=null; renderSavedCustomList();
+}
+
+function renderSavedCustomList() {
+  const el=document.getElementById('saved-custom-list');
+  if(!data.customFormations||!data.customFormations.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text-muted);padding:8px 0">まだカスタムフォーメーションがありません</div>';return;
+  }
+  el.innerHTML=data.customFormations.map(cf=>`<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--card2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent);flex:1">${cf.name}</span>
+    <span style="font-size:11px;color:var(--text-muted)">${cf.positions.length}ポジション</span>
+    <button onclick="editCustomFormation('${cf.id}')" style="background:rgba(0,200,83,0.1);border:1px solid var(--green-dark);color:var(--green-light);font-size:11px;padding:4px 9px;border-radius:5px;cursor:pointer;">編集</button>
+    <button onclick="deleteCustomFormation('${cf.id}')" style="background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.4);color:var(--red);font-size:11px;padding:4px 9px;border-radius:5px;cursor:pointer;">削除</button>
+  </div>`).join('');
+}
+
+function editCustomFormation(id) {
+  const cf=data.customFormations.find(c=>c.id===id);
+  if(!cf) return;
+  customEditingId=id;
+  document.getElementById('custom-fm-name').value=cf.name;
+  customPosData=JSON.parse(JSON.stringify(cf.positions));
+  selectedCustomPosId=null;
+  renderCustomPitch(); renderCustomPosList();
+  window.scrollTo(0,0);
+}
+function deleteCustomFormation(id) {
+  showConfirm('このカスタムフォーメーションを削除しますか？',()=>{
+    data.customFormations=data.customFormations.filter(cf=>cf.id!==id);
+    save(); renderSavedCustomList();
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderMatchList();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    const swCode = `
+const CACHE_NAME = 'soccer-playtime-v1';
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(e.request).then(cached => {
+        const fetchReq = fetch(e.request).then(res => {
+          if (res && res.status === 200 && res.type !== 'opaque') {
+            cache.put(e.request, res.clone());
+          }
+          return res;
+        }).catch(() => cached);
+        return cached || fetchReq;
+      })
+    )
+  );
+});
+`;
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).then(() => {
+      console.log('SW registered: playtime');
+    }).catch(err => console.log('SW error', err));
+  });
+}
+</script>
+</body>
+</html>
