@@ -36,32 +36,9 @@ document.getElementById('club-manifest').href = URL.createObjectURL(blob);
   body { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif; }
 </style>
 <script>
-// Firebase を非同期で読み込む（アプリの動作をブロックしない）
+// Firebase 無効（テスト用）
 window._firebaseReady = false;
-(async function() {
-  try {
-    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-    const { getFirestore, doc, getDoc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    const app = initializeApp({
-      apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
-      authDomain: "soccer-app-b2684.firebaseapp.com",
-      projectId: "soccer-app-b2684",
-      storageBucket: "soccer-app-b2684.firebasestorage.app",
-      messagingSenderId: "414908633175",
-      appId: "1:414908633175:web:7aa2603e23e9b335519312"
-    });
-    window._db = getFirestore(app);
-    window._fsDoc = doc;
-    window._fsGetDoc = getDoc;
-    window._fsSetDoc = setDoc;
-    window._firebaseReady = true;
-    window.dispatchEvent(new Event('firebaseReady'));
-  } catch(e) {
-    console.warn('Firebase init failed:', e);
-    window._firebaseReady = false;
-    window.dispatchEvent(new Event('firebaseReady'));
-  }
-})();
+window._db = null;
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -165,39 +142,8 @@ function sSet(k,v){
 }
 
 let _fbSaveTimer = {};
-function fbSet(k, v) {
-  clearTimeout(_fbSaveTimer[k]);
-  _fbSaveTimer[k] = setTimeout(async () => {
-    try {
-      if(!window._db) return;
-      const docRef = window._fsDoc(window._db, "soccer-club", FB_DOC);
-      const snap = await window._fsGetDoc(docRef);
-      const current = snap.exists() ? snap.data() : {};
-      current[k] = v;
-      await window._fsSetDoc(docRef, current);
-    } catch(e) {
-      console.warn("Firebase save failed:", e);
-    }
-  }, 1000);
-}
-
-async function fbLoad() {
-  try {
-    if(!window._db) return false;
-    const docRef = window._fsDoc(window._db, "soccer-club", FB_DOC);
-    const snap = await window._fsGetDoc(docRef);
-    if(snap.exists()) {
-      const d = snap.data();
-      Object.keys(d).forEach(k => {
-        localStorage.setItem(k, JSON.stringify(d[k]));
-      });
-      return true;
-    }
-  } catch(e) {
-    console.warn("Firebase load failed:", e);
-  }
-  return false;
-}
+function fbSet(k, v) { /* Firebase無効 */ }
+async function fbLoad() { return false; }
 window._fbLoad = fbLoad;
 
 // ===== Small Components =====
@@ -421,20 +367,7 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        // Firebaseからデータをロード（失敗してもアプリは動く）
-        try {
-          await Promise.race([
-            (async () => {
-              if(!window._firebaseReady) {
-                await new Promise(resolve => {
-                  window.addEventListener('firebaseReady', resolve, {once:true});
-                });
-              }
-              if(window._fbLoad) await window._fbLoad();
-            })(),
-            new Promise(resolve => setTimeout(resolve, 2000)) // 2秒でタイムアウト
-          ]);
-        } catch(e) { console.warn('Firebase load skipped:', e); }
+        // Firebase無効（テスト用）
         const m = sGet(SK.m);
         const p = sGet(SK.p);
         const e = sGet(SK.e);
