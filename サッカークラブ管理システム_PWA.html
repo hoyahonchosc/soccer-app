@@ -35,6 +35,30 @@ document.getElementById('club-manifest').href = URL.createObjectURL(blob);
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif; }
 </style>
+<script type="module">
+// ===== Firebase Setup =====
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
+  authDomain: "soccer-app-b2684.firebaseapp.com",
+  projectId: "soccer-app-b2684",
+  storageBucket: "soccer-app-b2684.firebasestorage.app",
+  messagingSenderId: "414908633175",
+  appId: "1:414908633175:web:7aa2603e23e9b335519312"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+window._db = db;
+window._fsDoc = doc;
+window._fsGetDoc = getDoc;
+window._fsSetDoc = setDoc;
+window._fsOnSnapshot = onSnapshot;
+window._firebaseReady = true;
+window.dispatchEvent(new Event('firebaseReady'));
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -113,8 +137,10 @@ function calcOtsuTax(monthlyPay){
 }
 const EMPTY_EVT={type:"practice",date:"",startTime:"",endTime:"",venueId:null,venueOther:"",classes:[],opponent:"",memo:"",coachIds:[]};
 
-// ===== Storage =====
+// ===== Storage (Firebase + localStorage fallback) =====
 const SK={m:"soccer-m-v5",p:"soccer-p-v3",e:"soccer-e-v2",ev:"soccer-ev-v1",co:"soccer-co-v1",vn:"soccer-vn-v1"};
+const FB_DOC = "club-data";
+
 function sGet(k){
   try{
     const v=localStorage.getItem(k);
@@ -130,7 +156,45 @@ function sSet(k,v){
   }catch(e){
     console.error("storage.set failed for",k,e);
   }
+  // Firebaseにも保存
+  fbSet(k,v);
 }
+
+let _fbSaveTimer = {};
+function fbSet(k, v) {
+  clearTimeout(_fbSaveTimer[k]);
+  _fbSaveTimer[k] = setTimeout(async () => {
+    try {
+      if(!window._db) return;
+      const docRef = window._fsDoc(window._db, "soccer-club", FB_DOC);
+      const snap = await window._fsGetDoc(docRef);
+      const current = snap.exists() ? snap.data() : {};
+      current[k] = v;
+      await window._fsSetDoc(docRef, current);
+    } catch(e) {
+      console.warn("Firebase save failed:", e);
+    }
+  }, 1000);
+}
+
+async function fbLoad() {
+  try {
+    if(!window._db) return false;
+    const docRef = window._fsDoc(window._db, "soccer-club", FB_DOC);
+    const snap = await window._fsGetDoc(docRef);
+    if(snap.exists()) {
+      const d = snap.data();
+      Object.keys(d).forEach(k => {
+        localStorage.setItem(k, JSON.stringify(d[k]));
+      });
+      return true;
+    }
+  } catch(e) {
+    console.warn("Firebase load failed:", e);
+  }
+  return false;
+}
+window._fbLoad = fbLoad;
 
 // ===== Small Components =====
 
@@ -353,6 +417,17 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
+        // Firebaseからデータをロード（localStorageに反映）
+        if(window._firebaseReady) {
+          await window._fbLoad();
+        } else {
+          await new Promise(resolve => {
+            if(window._firebaseReady) resolve();
+            else window.addEventListener('firebaseReady', resolve, {once:true});
+            setTimeout(resolve, 3000); // 3秒でタイムアウト
+          });
+          if(window._fbLoad) await window._fbLoad();
+        }
         const m = sGet(SK.m);
         const p = sGet(SK.p);
         const e = sGet(SK.e);

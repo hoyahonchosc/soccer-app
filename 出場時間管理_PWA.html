@@ -382,6 +382,26 @@ header h1 span { color: var(--accent); }
 ::-webkit-scrollbar-track { background: var(--pitch); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyBTzH_d2ywmZPMhac9jQVJFAsnOqqnOz9w",
+  authDomain: "soccer-app-b2684.firebaseapp.com",
+  projectId: "soccer-app-b2684",
+  storageBucket: "soccer-app-b2684.firebasestorage.app",
+  messagingSenderId: "414908633175",
+  appId: "1:414908633175:web:7aa2603e23e9b335519312"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+window._db = db;
+window._fsDoc = doc;
+window._fsGetDoc = getDoc;
+window._fsSetDoc = setDoc;
+window._firebaseReady = true;
+window.dispatchEvent(new Event('firebaseReady'));
+</script>
 </head>
 <body>
 
@@ -771,7 +791,35 @@ function getFormationById(id) {
 // ============================================================
 // UTILITY
 // ============================================================
-function save() { localStorage.setItem('soccerDataV2', JSON.stringify(data)); }
+function save() {
+  localStorage.setItem('soccerDataV2', JSON.stringify(data));
+  // Firebaseにも保存
+  clearTimeout(window._ptSaveTimer);
+  window._ptSaveTimer = setTimeout(async () => {
+    try {
+      if(!window._db) return;
+      const docRef = window._fsDoc(window._db, 'soccer-club', 'playtime-data');
+      await window._fsSetDoc(docRef, { data: JSON.stringify(data) });
+    } catch(e) { console.warn('Firebase save failed:', e); }
+  }, 1000);
+}
+
+async function fbLoadPlaytime() {
+  try {
+    if(!window._db) return false;
+    const docRef = window._fsDoc(window._db, 'soccer-club', 'playtime-data');
+    const snap = await window._fsGetDoc(docRef);
+    if(snap.exists()) {
+      const d = JSON.parse(snap.data().data);
+      if(d) {
+        data = d;
+        localStorage.setItem('soccerDataV2', JSON.stringify(data));
+        return true;
+      }
+    }
+  } catch(e) { console.warn('Firebase load failed:', e); }
+  return false;
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 function today() { return new Date().toISOString().slice(0,10); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -791,7 +839,21 @@ function showScreen(name) {
   document.querySelectorAll('.nav-btn').forEach((b,i) => {
     b.classList.toggle('active', ['matches','stats','players'][i] === name);
   });
-  if (name === 'matches') renderMatchList();
+  if (name === 'matches') (async function() {
+  try {
+    if(window._firebaseReady) {
+      await fbLoadPlaytime();
+    } else {
+      await new Promise(resolve => {
+        if(window._firebaseReady) resolve();
+        else window.addEventListener('firebaseReady', resolve, {once:true});
+        setTimeout(resolve, 3000);
+      });
+      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+    }
+  } catch(e) { console.warn('init load error:', e); }
+  renderMatchList();
+})();
   if (name === 'stats') renderStats();
   if (name === 'players') renderPlayerGrid();
 }
@@ -874,7 +936,21 @@ function saveMatch() {
   data.matches.unshift(match);
   data.playtimes[match.id]={};
   periods.forEach(p=>{data.playtimes[match.id][p.id]={};});
-  save(); closeModal('modal-match'); renderMatchList();
+  save(); closeModal('modal-match'); (async function() {
+  try {
+    if(window._firebaseReady) {
+      await fbLoadPlaytime();
+    } else {
+      await new Promise(resolve => {
+        if(window._firebaseReady) resolve();
+        else window.addEventListener('firebaseReady', resolve, {once:true});
+        setTimeout(resolve, 3000);
+      });
+      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+    }
+  } catch(e) { console.warn('init load error:', e); }
+  renderMatchList();
+})();
 }
 function openMatch(id) {
   currentMatchId = id;
@@ -891,7 +967,21 @@ function openMatch(id) {
 function setFilter(el, val) {
   currentFilter = val;
   document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active'); renderMatchList();
+  el.classList.add('active'); (async function() {
+  try {
+    if(window._firebaseReady) {
+      await fbLoadPlaytime();
+    } else {
+      await new Promise(resolve => {
+        if(window._firebaseReady) resolve();
+        else window.addEventListener('firebaseReady', resolve, {once:true});
+        setTimeout(resolve, 3000);
+      });
+      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+    }
+  } catch(e) { console.warn('init load error:', e); }
+  renderMatchList();
+})();
 }
 function renderMatchList() {
   const grid = document.getElementById('match-grid');
@@ -926,7 +1016,21 @@ function renderMatchList() {
         data.matches=data.matches.filter(x=>x.id!==mid);
         if(data.playtimes[mid]) delete data.playtimes[mid];
         if(data.formations[mid]) delete data.formations[mid];
-        save(); renderMatchList();
+        save(); (async function() {
+  try {
+    if(window._firebaseReady) {
+      await fbLoadPlaytime();
+    } else {
+      await new Promise(resolve => {
+        if(window._firebaseReady) resolve();
+        else window.addEventListener('firebaseReady', resolve, {once:true});
+        setTimeout(resolve, 3000);
+      });
+      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+    }
+  } catch(e) { console.warn('init load error:', e); }
+  renderMatchList();
+})();
       });
     });
     actions.appendChild(editBtn); actions.appendChild(delBtn); card.appendChild(actions); grid.appendChild(card);
@@ -1697,7 +1801,21 @@ function deleteCustomFormation(id) {
 // ============================================================
 // INIT
 // ============================================================
-renderMatchList();
+(async function() {
+  try {
+    if(window._firebaseReady) {
+      await fbLoadPlaytime();
+    } else {
+      await new Promise(resolve => {
+        if(window._firebaseReady) resolve();
+        else window.addEventListener('firebaseReady', resolve, {once:true});
+        setTimeout(resolve, 3000);
+      });
+      if(typeof fbLoadPlaytime === 'function') await fbLoadPlaytime();
+    }
+  } catch(e) { console.warn('init load error:', e); }
+  renderMatchList();
+})();
 </script>
 
 <script>
