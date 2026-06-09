@@ -14,27 +14,20 @@
       getStorage, ref, uploadBytesResumable, getDownloadURL, listAll, getMetadata
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-    // =====================================================
-    //  🔧 ここにFirebaseの設定を貼り付けてください
-    // =====================================================
     const firebaseConfig = {
-      apiKey:            "YOUR_API_KEY",
-      authDomain:        "YOUR_PROJECT.firebaseapp.com",
-      projectId:         "YOUR_PROJECT_ID",
-      storageBucket:     "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId:             "YOUR_APP_ID"
+      apiKey:            "AIzaSyARw86Z3b64eDUGzt5p7t3kumpuWRPy5ts",
+      authDomain:        "soccer-club-manager-49fb7.firebaseapp.com",
+      projectId:         "soccer-club-manager-49fb7",
+      storageBucket:     "soccer-club-manager-49fb7.firebasestorage.app",
+      messagingSenderId: "731970866107",
+      appId:             "1:731970866107:web:207cf49e130585224e929e"
     };
-    // =====================================================
-    //  🔑 共通パスワード（自由に変更してください）
-    // =====================================================
+
     const CORRECT_PASSWORD = "hoyahoncho2025";
-    // =====================================================
 
     const app = initializeApp(firebaseConfig);
     const storage = getStorage(app);
 
-    // ---------- パスワード認証 ----------
     const SESSION_KEY = "hsc_photo_auth";
     let currentAlbum = null;
 
@@ -67,7 +60,6 @@
 
     if (checkAuth()) showMain();
 
-    // ---------- アルバム一覧 ----------
     async function loadAlbums() {
       const albumGrid = document.getElementById("albumGrid");
       albumGrid.innerHTML = '<p class="loading">読み込み中...</p>';
@@ -119,7 +111,6 @@
       return card;
     }
 
-    // ---------- アルバム内写真表示 ----------
     async function openAlbum(folderRef, albumName) {
       currentAlbum = { ref: folderRef, name: albumName };
       document.getElementById("albumView").style.display = "none";
@@ -159,7 +150,6 @@
       document.getElementById("albumView").style.display = "block";
     });
 
-    // ---------- 一括ダウンロード ----------
     document.getElementById("downloadAllBtn").addEventListener("click", async () => {
       if (!window._photoUrls || window._photoUrls.length === 0) return;
       const btn = document.getElementById("downloadAllBtn");
@@ -180,7 +170,6 @@
       btn.disabled = false;
     });
 
-    // ---------- ライトボックス ----------
     function openLightbox(url, name) {
       const lb = document.getElementById("lightbox");
       document.getElementById("lbImg").src = url;
@@ -205,7 +194,6 @@
         document.getElementById("lightbox").style.display = "none";
     });
 
-    // ---------- アップロードモーダル ----------
     document.getElementById("uploadBtn").addEventListener("click", () => {
       document.getElementById("uploadModal").style.display = "flex";
     });
@@ -289,7 +277,6 @@
       min-height: 100vh;
     }
 
-    /* ===== ログイン画面 ===== */
     #loginScreen {
       display: flex;
       flex-direction: column;
@@ -381,7 +368,6 @@
       color: var(--muted);
     }
 
-    /* ===== メインアプリ ===== */
     #mainApp { display: none; }
 
     header {
@@ -422,7 +408,6 @@
 
     .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
 
-    /* ===== アルバム一覧 ===== */
     .section-title {
       font-family: 'Barlow Condensed', sans-serif;
       font-size: 22px;
@@ -490,7 +475,6 @@
       text-overflow: ellipsis;
     }
 
-    /* ===== 写真表示 ===== */
     #photoView { display: none; }
 
     .photo-header {
@@ -559,7 +543,6 @@
     }
     .photo-item:hover img { transform: scale(1.05); }
 
-    /* ===== ライトボックス ===== */
     #lightbox {
       display: none;
       position: fixed;
@@ -604,7 +587,6 @@
       cursor: pointer;
     }
 
-    /* ===== アップロードモーダル ===== */
     #uploadModal {
       display: none;
       position: fixed;
@@ -724,7 +706,6 @@
       color: var(--muted);
     }
 
-    /* ===== 共通 ===== */
     .loading, .empty-msg, .error-msg {
       grid-column: 1 / -1;
       padding: 40px 20px;
@@ -744,7 +725,6 @@
 </head>
 <body>
 
-<!-- ===== ログイン画面 ===== -->
 <div id="loginScreen">
   <div class="login-box">
     <p class="login-logo">保谷本町サッカークラブ</p>
@@ -756,22 +736,16 @@
   </div>
 </div>
 
-<!-- ===== メインアプリ ===== -->
 <div id="mainApp">
   <header>
     <div class="header-logo">保谷本町SC <span>PHOTO</span></div>
     <button id="uploadBtn">＋ アップロード</button>
   </header>
-
   <div class="container">
-
-    <!-- アルバム一覧 -->
     <div id="albumView">
       <p class="section-title">アルバム一覧</p>
       <div id="albumGrid"></div>
     </div>
-
-    <!-- 写真表示 -->
     <div id="photoView">
       <div class="photo-header">
         <button id="backToAlbums">← 戻る</button>
@@ -780,22 +754,17 @@
       </div>
       <div id="photoGrid"></div>
     </div>
-
   </div>
 </div>
 
-<!-- ===== アップロードモーダル ===== -->
 <div id="uploadModal">
   <div class="modal-box">
     <button id="uploadClose">✕</button>
     <p class="modal-title">写真をアップロード</p>
-
     <div class="form-group">
       <label class="form-label" for="newAlbumName">アルバム名</label>
-      <input class="form-input" type="text" id="newAlbumName"
-        placeholder="例: 2025-06 練習試合 vs FC東京" />
+      <input class="form-input" type="text" id="newAlbumName" placeholder="例: 2025-06 練習試合 vs FC東京" />
     </div>
-
     <div class="form-group">
       <label class="form-label">写真を選ぶ</label>
       <label class="file-label" for="fileInput">
@@ -804,17 +773,14 @@
       <input type="file" id="fileInput" multiple accept="image/*" />
       <p id="fileCount"></p>
     </div>
-
     <div id="uploadProgress">
       <div class="progress-bar"><div id="progressFill"></div></div>
       <p id="progressText"></p>
     </div>
-
     <button id="uploadSubmitBtn">アップロードする</button>
   </div>
 </div>
 
-<!-- ===== ライトボックス ===== -->
 <div id="lightbox">
   <button id="lbClose">✕</button>
   <img id="lbImg" src="" alt="" />
