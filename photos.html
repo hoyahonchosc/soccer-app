@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>保谷本町SC｜フォトギャラリー</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Barlow+Condensed:wght@600;800&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getStorage, ref, uploadBytesResumable, getDownloadURL, listAll, getMetadata
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+    // =====================================================
+    //  🔧 ここにFirebaseの設定を貼り付けてください
+    // =====================================================
+    const firebaseConfig = {
+      apiKey:            "YOUR_API_KEY",
+      authDomain:        "YOUR_PROJECT.firebaseapp.com",
+      projectId:         "YOUR_PROJECT_ID",
+      storageBucket:     "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId:             "YOUR_APP_ID"
+    };
+    // =====================================================
+    //  🔑 共通パスワード（自由に変更してください）
+    // =====================================================
+    const CORRECT_PASSWORD = "hoyahoncho2025";
+    // =====================================================
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+
+    // ---------- パスワード認証 ----------
+    const SESSION_KEY = "hsc_photo_auth";
+    let currentAlbum = null;
+
+    function checkAuth() {
+      return sessionStorage.getItem(SESSION_KEY) === "ok";
+    }
+
+    function showMain() {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("mainApp").style.display = "block";
+      loadAlbums();
+    }
+
+    document.getElementById("loginBtn").addEventListener("click", () => {
+      const val = document.getElementById("passwordInput").value;
+      if (val === CORRECT_PASSWORD) {
+        sessionStorage.setItem(SESSION_KEY, "ok");
+        document.getElementById("loginError").style.display = "none";
+        showMain();
+      } else {
+        document.getElementById("loginError").style.display = "block";
+        document.getElementById("passwordInput").value = "";
+        document.getElementById("passwordInput").focus();
+      }
+    });
+
+    document.getElementById("passwordInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") document.getElementById("loginBtn").click();
+    });
+
+    if (checkAuth()) showMain();
+
+    // ---------- アルバム一覧 ----------
+    async function loadAlbums() {
+      const albumGrid = document.getElementById("albumGrid");
+      albumGrid.innerHTML = '<p class="loading">読み込み中...</p>';
+      try {
+        const rootRef = ref(storage, "albums/");
+        const res = await listAll(rootRef);
+        albumGrid.innerHTML = "";
+
+        if (res.prefixes.length === 0) {
+          albumGrid.innerHTML = '<p class="empty-msg">アルバムはまだありません。<br>上の「アップロード」から写真を追加してください。</p>';
+          return;
+        }
+
+        for (const folderRef of res.prefixes) {
+          const albumName = folderRef.name;
+          const thumbEl = await buildAlbumCard(folderRef, albumName);
+          albumGrid.appendChild(thumbEl);
+        }
+      } catch (e) {
+        albumGrid.innerHTML = `<p class="error-msg">読み込みに失敗しました。<br>Firebase の設定を確認してください。</p>`;
+        console.error(e);
+      }
+    }
+
+    async function buildAlbumCard(folderRef, albumName) {
+      const card = document.createElement("div");
+      card.className = "album-card";
+
+      let thumbUrl = "";
+      let count = 0;
+      try {
+        const files = await listAll(folderRef);
+        count = files.items.length;
+        if (files.items.length > 0) {
+          thumbUrl = await getDownloadURL(files.items[0]);
+        }
+      } catch (_) {}
+
+      card.innerHTML = `
+        <div class="album-thumb" style="${thumbUrl ? `background-image:url('${thumbUrl}')` : "background-color:#1a3a6b"}">
+          ${!thumbUrl ? '<span class="no-thumb">📷</span>' : ""}
+          <span class="album-count">${count}枚</span>
+        </div>
+        <div class="album-info">
+          <p class="album-name">${albumName}</p>
+        </div>
+      `;
+      card.addEventListener("click", () => openAlbum(folderRef, albumName));
+      return card;
+    }
+
+    // ---------- アルバム内写真表示 ----------
+    async function openAlbum(folderRef, albumName) {
+      currentAlbum = { ref: folderRef, name: albumName };
+      document.getElementById("albumView").style.display = "none";
+      document.getElementById("photoView").style.display = "block";
+      document.getElementById("albumTitle").textContent = albumName;
+
+      const grid = document.getElementById("photoGrid");
+      grid.innerHTML = '<p class="loading">読み込み中...</p>';
+
+      try {
+        const files = await listAll(folderRef);
+        grid.innerHTML = "";
+
+        if (files.items.length === 0) {
+          grid.innerHTML = '<p class="empty-msg">写真がまだありません。</p>';
+          return;
+        }
+
+        window._photoUrls = [];
+        for (const fileRef of files.items) {
+          const url = await getDownloadURL(fileRef);
+          window._photoUrls.push({ url, name: fileRef.name });
+          const item = document.createElement("div");
+          item.className = "photo-item";
+          item.innerHTML = `<img src="${url}" alt="${fileRef.name}" loading="lazy" />`;
+          item.addEventListener("click", () => openLightbox(url, fileRef.name));
+          grid.appendChild(item);
+        }
+      } catch (e) {
+        grid.innerHTML = '<p class="error-msg">写真の読み込みに失敗しました。</p>';
+        console.error(e);
+      }
+    }
+
+    document.getElementById("backToAlbums").addEventListener("click", () => {
+      document.getElementById("photoView").style.display = "none";
+      document.getElementById("albumView").style.display = "block";
+    });
+
+    // ---------- 一括ダウンロード ----------
+    document.getElementById("downloadAllBtn").addEventListener("click", async () => {
+      if (!window._photoUrls || window._photoUrls.length === 0) return;
+      const btn = document.getElementById("downloadAllBtn");
+      btn.textContent = "準備中...";
+      btn.disabled = true;
+      for (const { url, name } of window._photoUrls) {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          a.click();
+          await new Promise(r => setTimeout(r, 300));
+        } catch (e) { console.warn("DL失敗:", name, e); }
+      }
+      btn.textContent = "⬇ 一括ダウンロード";
+      btn.disabled = false;
+    });
+
+    // ---------- ライトボックス ----------
+    function openLightbox(url, name) {
+      const lb = document.getElementById("lightbox");
+      document.getElementById("lbImg").src = url;
+      document.getElementById("lbDownloadBtn").onclick = async () => {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+      };
+      lb.style.display = "flex";
+    }
+
+    document.getElementById("lbClose").addEventListener("click", () => {
+      document.getElementById("lightbox").style.display = "none";
+      document.getElementById("lbImg").src = "";
+    });
+
+    document.getElementById("lightbox").addEventListener("click", e => {
+      if (e.target === document.getElementById("lightbox"))
+        document.getElementById("lightbox").style.display = "none";
+    });
+
+    // ---------- アップロードモーダル ----------
+    document.getElementById("uploadBtn").addEventListener("click", () => {
+      document.getElementById("uploadModal").style.display = "flex";
+    });
+    document.getElementById("uploadClose").addEventListener("click", () => {
+      document.getElementById("uploadModal").style.display = "none";
+      resetUploadForm();
+    });
+
+    document.getElementById("fileInput").addEventListener("change", () => {
+      const files = document.getElementById("fileInput").files;
+      document.getElementById("fileCount").textContent =
+        files.length > 0 ? `${files.length}枚選択中` : "";
+    });
+
+    document.getElementById("uploadSubmitBtn").addEventListener("click", async () => {
+      const albumNameEl = document.getElementById("newAlbumName");
+      const fileInput = document.getElementById("fileInput");
+      const albumName = albumNameEl.value.trim();
+
+      if (!albumName) { alert("アルバム名を入力してください"); return; }
+      if (fileInput.files.length === 0) { alert("写真を選択してください"); return; }
+
+      const submitBtn = document.getElementById("uploadSubmitBtn");
+      submitBtn.disabled = true;
+
+      const progressBar = document.getElementById("uploadProgress");
+      const progressFill = document.getElementById("progressFill");
+      const progressText = document.getElementById("progressText");
+      progressBar.style.display = "block";
+
+      const files = Array.from(fileInput.files);
+      let done = 0;
+
+      for (const file of files) {
+        const storageRef = ref(storage, `albums/${albumName}/${file.name}`);
+        await new Promise((resolve, reject) => {
+          const task = uploadBytesResumable(storageRef, file);
+          task.on("state_changed", null, reject, resolve);
+        });
+        done++;
+        const pct = Math.round((done / files.length) * 100);
+        progressFill.style.width = pct + "%";
+        progressText.textContent = `${done} / ${files.length} 枚アップロード完了`;
+      }
+
+      submitBtn.disabled = false;
+      document.getElementById("uploadModal").style.display = "none";
+      resetUploadForm();
+      loadAlbums();
+      alert(`✅ ${files.length}枚アップロードしました！`);
+    });
+
+    function resetUploadForm() {
+      document.getElementById("newAlbumName").value = "";
+      document.getElementById("fileInput").value = "";
+      document.getElementById("fileCount").textContent = "";
+      document.getElementById("uploadProgress").style.display = "none";
+      document.getElementById("progressFill").style.width = "0%";
+      document.getElementById("progressText").textContent = "";
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0f2a5e;
+      --blue:   #1a4fa0;
+      --accent: #e8a020;
+      --white:  #ffffff;
+      --bg:     #f4f6fa;
+      --text:   #1a1a2e;
+      --muted:  #6b7280;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ===== ログイン画面 ===== */
+    #loginScreen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(160deg, var(--navy) 0%, var(--blue) 60%, #2d7dd2 100%);
+      padding: 24px;
+    }
+
+    .login-box {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+
+    .login-logo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .login-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1.1;
+      margin-bottom: 28px;
+    }
+
+    .login-title span {
+      display: block;
+      color: var(--accent);
+    }
+
+    .login-box input[type="password"] {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #dde3f0;
+      border-radius: 10px;
+      font-size: 18px;
+      font-family: inherit;
+      text-align: center;
+      letter-spacing: 0.2em;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .login-box input[type="password"]:focus {
+      border-color: var(--blue);
+    }
+
+    #loginError {
+      display: none;
+      color: #e53e3e;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    #loginBtn {
+      margin-top: 20px;
+      width: 100%;
+      padding: 14px;
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    #loginBtn:hover { background: var(--blue); }
+
+    .login-note {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ===== メインアプリ ===== */
+    #mainApp { display: none; }
+
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-logo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    .header-logo span { color: var(--accent); }
+
+    #uploadBtn {
+      background: var(--accent);
+      color: var(--navy);
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    #uploadBtn:hover { opacity: .85; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+    /* ===== アルバム一覧 ===== */
+    .section-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--navy);
+      letter-spacing: 0.04em;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 3px solid var(--accent);
+      display: inline-block;
+    }
+
+    #albumGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .album-card {
+      background: white;
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+      transition: transform .18s, box-shadow .18s;
+    }
+    .album-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 28px rgba(0,0,0,.13);
+    }
+
+    .album-thumb {
+      height: 130px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .no-thumb { font-size: 36px; }
+
+    .album-count {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,.55);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+
+    .album-info { padding: 10px 12px 12px; }
+
+    .album-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ===== 写真表示 ===== */
+    #photoView { display: none; }
+
+    .photo-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    #backToAlbums {
+      background: none;
+      border: 2px solid var(--navy);
+      color: var(--navy);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    #backToAlbums:hover { background: var(--navy); color: white; }
+
+    #albumTitle {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--navy);
+      flex: 1;
+    }
+
+    #downloadAllBtn {
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    #downloadAllBtn:hover { background: var(--blue); }
+    #downloadAllBtn:disabled { opacity: .5; cursor: default; }
+
+    #photoGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .photo-item {
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #dde3f0;
+    }
+    .photo-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform .2s;
+    }
+    .photo-item:hover img { transform: scale(1.05); }
+
+    /* ===== ライトボックス ===== */
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.88);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    #lbImg {
+      max-width: 90vw;
+      max-height: 75vh;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
+    #lbClose {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      color: white;
+      font-size: 32px;
+      cursor: pointer;
+      line-height: 1;
+      background: none;
+      border: none;
+    }
+
+    #lbDownloadBtn {
+      margin-top: 16px;
+      background: var(--accent);
+      color: var(--navy);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* ===== アップロードモーダル ===== */
+    #uploadModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-box {
+      background: white;
+      border-radius: 16px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+    }
+
+    .modal-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 20px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid #dde3f0;
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .form-input:focus { border-color: var(--blue); }
+
+    .file-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border: 2px dashed #aab8d4;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--muted);
+      transition: border-color .2s;
+    }
+    .file-label:hover { border-color: var(--blue); color: var(--navy); }
+
+    #fileInput { display: none; }
+    #fileCount { font-size: 13px; color: var(--blue); font-weight: 700; margin-top: 6px; }
+
+    #uploadProgress { display: none; margin-top: 12px; }
+
+    .progress-bar {
+      height: 8px;
+      background: #dde3f0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #progressFill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 10px;
+      width: 0%;
+      transition: width .2s;
+    }
+
+    #progressText {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    #uploadSubmitBtn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px;
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    #uploadSubmitBtn:hover { background: var(--blue); }
+    #uploadSubmitBtn:disabled { opacity: .5; cursor: default; }
+
+    #uploadClose {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      font-size: 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    /* ===== 共通 ===== */
+    .loading, .empty-msg, .error-msg {
+      grid-column: 1 / -1;
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    .error-msg { color: #e53e3e; }
+
+    @media (max-width: 480px) {
+      #albumGrid { grid-template-columns: repeat(2, 1fr); }
+      #photoGrid { grid-template-columns: repeat(2, 1fr); }
+      .login-box { padding: 32px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== ログイン画面 ===== -->
+<div id="loginScreen">
+  <div class="login-box">
+    <p class="login-logo">保谷本町サッカークラブ</p>
+    <h1 class="login-title">PHOTO<span>GALLERY</span></h1>
+    <input type="password" id="passwordInput" placeholder="パスワードを入力" autocomplete="off" />
+    <p id="loginError">パスワードが違います</p>
+    <button id="loginBtn">ギャラリーを開く</button>
+    <p class="login-note">保護者・スタッフ専用ページです</p>
+  </div>
+</div>
+
+<!-- ===== メインアプリ ===== -->
+<div id="mainApp">
+  <header>
+    <div class="header-logo">保谷本町SC <span>PHOTO</span></div>
+    <button id="uploadBtn">＋ アップロード</button>
+  </header>
+
+  <div class="container">
+
+    <!-- アルバム一覧 -->
+    <div id="albumView">
+      <p class="section-title">アルバム一覧</p>
+      <div id="albumGrid"></div>
+    </div>
+
+    <!-- 写真表示 -->
+    <div id="photoView">
+      <div class="photo-header">
+        <button id="backToAlbums">← 戻る</button>
+        <p id="albumTitle"></p>
+        <button id="downloadAllBtn">⬇ 一括ダウンロード</button>
+      </div>
+      <div id="photoGrid"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== アップロードモーダル ===== -->
+<div id="uploadModal">
+  <div class="modal-box">
+    <button id="uploadClose">✕</button>
+    <p class="modal-title">写真をアップロード</p>
+
+    <div class="form-group">
+      <label class="form-label" for="newAlbumName">アルバム名</label>
+      <input class="form-input" type="text" id="newAlbumName"
+        placeholder="例: 2025-06 練習試合 vs FC東京" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">写真を選ぶ</label>
+      <label class="file-label" for="fileInput">
+        📁 タップして写真を選択（複数可）
+      </label>
+      <input type="file" id="fileInput" multiple accept="image/*" />
+      <p id="fileCount"></p>
+    </div>
+
+    <div id="uploadProgress">
+      <div class="progress-bar"><div id="progressFill"></div></div>
+      <p id="progressText"></p>
+    </div>
+
+    <button id="uploadSubmitBtn">アップロードする</button>
+  </div>
+</div>
+
+<!-- ===== ライトボックス ===== -->
+<div id="lightbox">
+  <button id="lbClose">✕</button>
+  <img id="lbImg" src="" alt="" />
+  <button id="lbDownloadBtn">⬇ この写真をダウンロード</button>
+</div>
+
+</body>
+</html>
